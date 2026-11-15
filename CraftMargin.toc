@@ -1,0 +1,23 @@
+## Interface: 16001
+## Title: Craft Margin
+## Notes: Finds your most profitable crafts using Auctionator prices.
+## Author: Craft Margin
+## Version: 0.1.0
+## IconTexture: Interface\AddOns\CraftMargin\Media\icon
+## OptionalDeps: Auctionator
+## SavedVariables: CraftMarginDB
+## SavedVariablesPerCharacter: CraftMarginCharDB
+
+Core\Namespace.lua
+Core\Util.lua
+Core\Events.lua
+Core\Api.lua
+Domain\VendorData.lua
+Domain\Vendor.lua
+Domain\Prices.lua
+Domain\Recipes.lua
+Domain\Costing.lua
+Domain\Ranking.lua
+UI\Widgets.lua
+UI\MainWindow.lua
+Commands.lua

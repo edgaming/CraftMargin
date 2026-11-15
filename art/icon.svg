@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="40%" r="70%">
+      <stop offset="0" stop-color="#3a2a17"/><stop offset="1" stop-color="#140d06"/>
+    </radialGradient>
+    <linearGradient id="coin" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffe07a"/><stop offset="1" stop-color="#c08a1e"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" fill="url(#bg)"/>
+  <!-- anvil -->
+  <path d="M10 40 h30 c0 4 -4 6 -8 6 v6 h6 v4 h-26 v-4 h6 v-6 c-5 0 -8 -3 -8 -6 z" fill="#8c8f96" stroke="#3b3d42" stroke-width="1.5"/>
+  <!-- coin -->
+  <circle cx="42" cy="24" r="13" fill="url(#coin)" stroke="#7a5310" stroke-width="2"/>
+  <circle cx="42" cy="24" r="8.5" fill="none" stroke="#9c6c15" stroke-width="1.5"/>
+  <!-- up arrow -->
+  <path d="M50 46 l8 -10 l8 10 h-5 v12 h-6 v-12 z" transform="translate(-6 -2)" fill="#43d24a" stroke="#14501a" stroke-width="1.5"/>
+</svg>
