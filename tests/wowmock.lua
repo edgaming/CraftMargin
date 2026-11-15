@@ -108,6 +108,10 @@ function Frame:IsVisible()
   end
   return true
 end
+-- Buttons light up while the mouse is over them; child hover areas lock it on.
+function Frame:LockHighlight() self._lit = true end
+function Frame:UnlockHighlight() self._lit = false end
+function Frame:IsLit() return self._lit == true end
 function Frame:SetText(t) self._text = t end
 function Frame:GetText() return self._text end
 function Frame:GetStringWidth() return #(self._text or "") * 6 end
@@ -165,6 +169,7 @@ end
 
 function Click(f, ...) local s = f._scripts.OnClick; assert(s, "no OnClick"); s(f, ...) end
 function Enter(f) local s = f._scripts.OnEnter; assert(s, "no OnEnter"); s(f) end
+function Leave(f) local s = f._scripts.OnLeave; assert(s, "no OnLeave"); s(f) end
 
 ---------------------------------------------------------------------------
 -- Professions and trade skills

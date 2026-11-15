@@ -304,3 +304,17 @@ test("clicking a recipe name opens it in the profession window", function()
   Click(Window().rows[1].row.nameHit)
   ok(Printed("can't open a recipe from here"))
 end)
+
+test("the row stays highlighted while hovering its name or profit", function()
+  world()
+  prices()
+  OpenProfession("Tailoring", 197)
+  Slash()
+  local row = Window().rows[1].row
+  for _, area in ipairs({ row.nameHit, row.hit }) do
+    Enter(area)
+    eq(row:IsLit(), true)
+    Leave(area)
+    eq(row:IsLit(), false)
+  end
+end)
