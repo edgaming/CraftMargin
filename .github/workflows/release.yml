@@ -1,0 +1,60 @@
+name: Release
+
+# Releases when VERSION changes on main (or by hand). Creates the tag itself, then packages.
+on:
+  push:
+    branches: [main]
+    paths: [VERSION]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read version
+        id: v
+        run: echo "version=$(tr -d '[:space:]' < VERSION)" >> "$GITHUB_OUTPUT"
+
+      - name: Skip if already released
+        id: exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "v${{ steps.v.outputs.version }}" >/dev/null 2>&1; then
+            echo "Release v${{ steps.v.outputs.version }} already exists"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-python@v5
+        if: steps.exists.outputs.skip == 'false'
+        with:
+          python-version: "3.12"
+
+      - name: Test
+        if: steps.exists.outputs.skip == 'false'
+        run: |
+          pip install lupa
+          python tests/run.py
+
+      - name: Tag
+        if: steps.exists.outputs.skip == 'false'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "v${{ steps.v.outputs.version }}"
+          git push origin "v${{ steps.v.outputs.version }}"
+
+      - name: Package and release
+        if: steps.exists.outputs.skip == 'false'
+        env:
+          GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
+        run: curl -s https://raw.githubusercontent.com/BigWigsMods/packager/v2/release.sh | GITHUB_EVENT_NAME=workflow_dispatch bash

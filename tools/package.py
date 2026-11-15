@@ -18,6 +18,10 @@ def main():
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
         for item in INCLUDE:
             path = os.path.join(ROOT, item)
+            if item.endswith(".toc"):
+                toc = open(path, encoding="utf-8").read().replace("@project-version@", version)
+                z.writestr(f"{ADDON}/{item}", toc)
+                continue
             if os.path.isfile(path):
                 z.write(path, f"{ADDON}/{item}")
                 continue

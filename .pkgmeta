@@ -1,0 +1,11 @@
+package-as: CraftMargin
+
+ignore:
+  - .github
+  - .gitignore
+  - art
+  - dist
+  - tests
+  - tools
+  - README.md
+  - VERSION

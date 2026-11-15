@@ -2,7 +2,7 @@
 ## Title: Craft Margin
 ## Notes: Finds your most profitable crafts using Auctionator prices.
 ## Author: Craft Margin
-## Version: 0.1.0
+## Version: @project-version@
 ## IconTexture: Interface\AddOns\CraftMargin\Media\icon
 ## OptionalDeps: Auctionator
 ## SavedVariables: CraftMarginDB
