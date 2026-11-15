@@ -83,6 +83,29 @@ function Api.Schematic(recipeID)
   return T and T.GetRecipeSchematic and T.GetRecipeSchematic(recipeID, false)
 end
 
+-- Tooltip for what a recipe makes. Falls back to the plain item tooltip.
+function Api.RecipeTooltip(owner, recipeID, itemID)
+  GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
+  local shown = false
+  if recipeID and GameTooltip.SetRecipeResultItem then
+    shown = pcall(GameTooltip.SetRecipeResultItem, GameTooltip, recipeID)
+  end
+  if not shown and itemID and GameTooltip.SetItemByID then
+    shown = pcall(GameTooltip.SetItemByID, GameTooltip, itemID)
+  end
+  GameTooltip:Show()
+  return shown
+end
+
+-- Opens the profession window with this recipe selected.
+function Api.OpenRecipe(recipeID)
+  local T = C_TradeSkillUI
+  if recipeID and T and T.OpenRecipe then
+    return (pcall(T.OpenRecipe, recipeID))
+  end
+  return false
+end
+
 function Api.ReagentBasicType()
   return Enum and Enum.CraftingReagentType and Enum.CraftingReagentType.Basic
 end

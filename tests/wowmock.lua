@@ -122,8 +122,10 @@ UIParent = CreateFrame("Frame", "UIParent")
 GameTooltip = CreateFrame("GameTooltip", "GameTooltip", UIParent)
 GameTooltip._shown = false
 GameTooltip.lines = {}
-function GameTooltip:SetOwner(owner) self.owner = owner; self.lines = {} end
+function GameTooltip:SetOwner(owner) self.owner = owner; self.lines = {}; self.recipe = nil; self.item = nil end
 function GameTooltip:ClearLines() self.lines = {} end
+function GameTooltip:SetRecipeResultItem(recipeID) self.recipe = recipeID end
+function GameTooltip:SetItemByID(itemID) self.item = itemID end
 function GameTooltip:AddLine(text) table.insert(self.lines, { text }) end
 function GameTooltip:AddDoubleLine(l, r, lr, lg, lb, rr, rg, rb) table.insert(self.lines, { l, r, { rr, rg, rb } }) end
 
@@ -219,6 +221,7 @@ C_TradeSkillUI = {
     table.sort(ids)
     return ids
   end,
+  OpenRecipe = function(id) Mock.openedRecipe = id end,
   GetRecipeInfo = function(id) local r = openRecipes()[id] return r and r.info end,
   GetRecipeSchematic = function(id) local r = openRecipes()[id] return r and r.schematic end,
 }

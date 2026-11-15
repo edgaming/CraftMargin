@@ -30,6 +30,8 @@ function Commands.Debug()
   local stored = {}
   for skillLine, entry in pairs(ns.char.profs) do stored[#stored + 1] = entry.name .. "=" .. skillLine end
   say("Stored: " .. (#stored > 0 and table.concat(stored, ", ") or "none"))
+  say("Open recipe: " .. ((C_TradeSkillUI and C_TradeSkillUI.OpenRecipe) and "yes" or "no")
+    .. " · recipe tooltip: " .. (GameTooltip.SetRecipeResultItem and "yes" or "no"))
   local open = Api.OpenProfession()
   say("Open profession: " .. (open and (open.name .. " (" .. open.skillLine .. ")") or "none"))
   local builtin, recorded = ns.Vendor.Count()

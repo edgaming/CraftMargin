@@ -15,6 +15,7 @@ local L = {
   NO_PROFS = "You have no crafting professions.",
   NOTHING = "None of these recipes make something you can sell.",
   FOOTER = "%d recipes · read %s",
+  CANT_OPEN = "Craft Margin: this client can't open a recipe from here. Open the profession window yourself.",
 }
 
 local W, H = 560, 440
@@ -107,6 +108,19 @@ local function Row(i)
   row.name:SetPoint("LEFT", 4, 0)
   row.name:SetWidth(COL_COST - 90)
   row.name:SetWordWrap(false)
+
+  -- Hovering the name shows what the recipe makes; clicking opens it in the profession window.
+  row.nameHit = CreateFrame("Button", nil, row)
+  row.nameHit:SetPoint("TOPLEFT", 0, 0)
+  row.nameHit:SetSize(COL_COST - 86, ROW_H)
+  row.nameHit:RegisterForClicks("LeftButtonUp")
+  row.nameHit:SetScript("OnEnter", function(self)
+    if row.data then Api.RecipeTooltip(self, row.data.recipe.id, row.data.recipe.out) end
+  end)
+  row.nameHit:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  row.nameHit:SetScript("OnClick", function()
+    if row.data and not Api.OpenRecipe(row.data.recipe.id) then print(L.CANT_OPEN) end
+  end)
   row.cost = UI.Text(row, "GameFontHighlightSmall", "RIGHT")
   SetColumn(row.cost, row, COL_COST)
   row.sells = UI.Text(row, "GameFontHighlightSmall", "RIGHT")
