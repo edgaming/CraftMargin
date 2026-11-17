@@ -19,11 +19,12 @@ local L = {
   CANT_OPEN = "Craft Margin: this client can't open a recipe from here. Open the profession window yourself.",
 }
 
-local W, H = 560, 440
-local ROW_H = 18
-local CONTENT_W = 516
+-- Row look: font for names and money, row height, item icon size.
+local ROW_FONT, ROW_H, ICON = "GameFontHighlight", 22, 18
+local W, H = 620, 460
+local CONTENT_W = 576
 -- Right edges of the money columns, in row coordinates.
-local COL_COST, COL_SELLS, COL_PROFIT = 290, 375, 462
+local COL_COST, COL_SELLS, COL_PROFIT = 340, 435, 525
 
 Main.rows, Main.tabs = {}, {}
 
@@ -130,15 +131,19 @@ local function Row(i)
   row:RegisterForClicks("LeftButtonUp")
   row:SetScript("OnClick", OpenRow)
 
-  row.name = UI.Text(row, "GameFontHighlightSmall", "LEFT")
-  row.name:SetPoint("LEFT", 4, 0)
-  row.name:SetWidth(COL_COST - 90)
+  row.icon = row:CreateTexture(nil, "ARTWORK")
+  row.icon:SetSize(ICON, ICON)
+  row.icon:SetPoint("LEFT", 4, 0)
+  row.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93) -- trim the icon border
+  row.name = UI.Text(row, ROW_FONT, "LEFT")
+  row.name:SetPoint("LEFT", ICON + 10, 0)
+  row.name:SetWidth(COL_COST - 100 - ICON)
   row.name:SetWordWrap(false)
-  row.cost = UI.Text(row, "GameFontHighlightSmall", "RIGHT")
+  row.cost = UI.Text(row, ROW_FONT, "RIGHT")
   SetColumn(row.cost, row, COL_COST)
-  row.sells = UI.Text(row, "GameFontHighlightSmall", "RIGHT")
+  row.sells = UI.Text(row, ROW_FONT, "RIGHT")
   SetColumn(row.sells, row, COL_SELLS)
-  row.profit = UI.Text(row, "GameFontHighlightSmall", "RIGHT")
+  row.profit = UI.Text(row, ROW_FONT, "RIGHT")
   SetColumn(row.profit, row, COL_PROFIT)
   row.tag = UI.Text(row, "GameFontDisableSmall", "LEFT")
   row.tag:SetPoint("LEFT", row, "LEFT", COL_PROFIT + 5, 0)
@@ -146,10 +151,10 @@ local function Row(i)
   UI.SetColor(row.tag, "muted")
 
   -- Name: what the recipe makes. Cost: the materials. Profit: the money math.
-  row.nameHit = HoverArea(row, 0, COL_COST - 86, function(self, r)
+  row.nameHit = HoverArea(row, 0, COL_COST - 92, function(self, r)
     Api.RecipeTooltip(self, r.recipe.id, r.recipe.out)
   end)
-  row.costHit = HoverArea(row, COL_COST - 82, COL_COST + 4, Main.ShowCostTooltip)
+  row.costHit = HoverArea(row, COL_COST - 88, COL_COST + 4, Main.ShowCostTooltip)
   row.hit = HoverArea(row, COL_SELLS + 4, CONTENT_W, Main.ShowTooltip)
 
   Main.rows[i] = row
@@ -197,7 +202,7 @@ function Main.Create()
   Main.status:SetPoint("TOPRIGHT", -14, -34)
 
   local function header(text, right)
-    local fs = UI.Text(f, "GameFontNormalSmall", right and "RIGHT" or "LEFT")
+    local fs = UI.Text(f, "GameFontNormal", right and "RIGHT" or "LEFT")
     fs:SetText(text)
     if right then fs:SetPoint("RIGHT", f, "TOPLEFT", 10 + right, -64) else fs:SetPoint("LEFT", f, "TOPLEFT", 14, -64) end
     return fs
@@ -256,6 +261,7 @@ end
 local function DrawRow(row, r)
   row.data = r
   row.name:SetText(r.recipe.name or "?")
+  row.icon:SetTexture(Api.ItemIcon(r.recipe.out))
   if r.complete then
     UI.SetColor(row.name, "text")
     row.cost:SetText(Util.Money(r.cost))

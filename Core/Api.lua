@@ -121,6 +121,16 @@ function Api.Item(itemID)
   return clean(r[1]), clean(r[14]), clean(r[11])
 end
 
+local QUESTION_MARK = 134400 -- Interface\Icons\INV_Misc_QuestionMark
+
+-- Icon for an item; the question mark until the game has it loaded.
+function Api.ItemIcon(itemID)
+  local icon = C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(itemID)
+  icon = clean(icon)
+  if not icon then Api.RequestItem(itemID) end
+  return icon or QUESTION_MARK
+end
+
 function Api.RequestItem(itemID)
   if C_Item and C_Item.RequestLoadItemDataByID then
     pcall(C_Item.RequestLoadItemDataByID, itemID)

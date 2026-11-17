@@ -112,6 +112,8 @@ end
 function Frame:LockHighlight() self._lit = true end
 function Frame:UnlockHighlight() self._lit = false end
 function Frame:IsLit() return self._lit == true end
+function Frame:SetTexture(t) self._texture = t end
+function Frame:GetTexture() return self._texture end
 function Frame:SetText(t) self._text = t end
 function Frame:GetText() return self._text end
 function Frame:GetStringWidth() return #(self._text or "") * 6 end
@@ -255,10 +257,11 @@ C_Item = {
     return it.name, "link", 1, 1, 1, "Trade Goods", "", 20, "", 134400, it.vendor or 0, 7, 0, it.bind or 0
   end,
   GetItemCount = function() return 0 end,
+  GetItemIconByID = function(id) local it = Mock.items[id] return it and it.icon end,
   RequestLoadItemDataByID = noop,
 }
 
-function Item(id, name, bind, vendor) Mock.items[id] = { name = name, bind = bind, vendor = vendor } end
+function Item(id, name, bind, vendor, icon) Mock.items[id] = { name = name, bind = bind, vendor = vendor, icon = icon } end
 
 ---------------------------------------------------------------------------
 -- Merchant
