@@ -94,7 +94,7 @@ end)
 
 local function render(lines)
   local got = {}
-  for _, l in ipairs(lines) do table.insert(got, l[1] .. " | " .. (Strip(l[2]) or "") .. " | " .. (l[3] or "")) end
+  for _, l in ipairs(lines) do table.insert(got, Strip(l[1]) .. " | " .. (Strip(l[2]) or "") .. " | " .. (l[3] or "")) end
   return table.concat(got, "\n")
 end
 
@@ -133,12 +133,23 @@ test("cost tooltip lists each material with its source, then the total", functio
   local r = ns.Costing.Evaluate(recipe({ { id = 2996, n = 3 }, { id = 2320, n = 3 }, { id = 9999, n = 1 } }),
     src({ [4238] = 1000 }, { [2996] = { 150, "ah" }, [2320] = { 10, "vendor" } }), 0.05)
   local names = { [2996] = "Bolt of Linen Cloth", [2320] = "Coarse Thread", [9999] = "Mystery Dust" }
-  eq(render(ns.Costing.CostLines(r, function(id) return names[id] end)), table.concat({
-    "3 × Bolt of Linen Cloth | 4s 50c AH | ",
-    "3 × Coarse Thread | 30c vendor | ",
-    "1 × Mystery Dust | no price | bad",
+  local bags = { [2996] = 5, [2320] = 1 }
+  local item = { name = function(id) return names[id] end, icon = function(id) return "i" .. id end,
+    have = function(id) return bags[id] end }
+  eq(render(ns.Costing.CostLines(r, item)), table.concat({
+    "[i2996] 5/3 Bolt of Linen Cloth | 4s 50c AH | ",
+    "[i2320] 1/3 Coarse Thread | 30c vendor | ",
+    "[i9999] 0/1 Mystery Dust | no price | bad",
     "Total so far | 4s 80c | head",
   }, "\n"))
   r = ns.Costing.Evaluate(recipe({}), src({ [4238] = 1000 }), 0.05)
-  eq(render(ns.Costing.CostLines(r, function() end)), "No materials |  | muted")
+  eq(render(ns.Costing.CostLines(r, item)), "No materials |  | muted")
+end)
+
+test("enough in bags turns the count green", function()
+  local ns = Boot()
+  local r = ns.Costing.Evaluate(recipe({ { id = 1, n = 2 } }), src({ [4238] = 100 }, { [1] = 5 }), 0.05)
+  local lines = ns.Costing.CostLines(r, { name = function() return "X" end, icon = function() return 1 end,
+    have = function() return 2 end })
+  ok(lines[1][1]:find("|c" .. ns.Util.Hex("good") .. "2/2|r", 1, true), "green 2/2")
 end)

@@ -131,6 +131,12 @@ function Api.ItemIcon(itemID)
   return icon or QUESTION_MARK
 end
 
+-- How many the player carries in their bags.
+function Api.ItemCount(itemID)
+  local count = C_Item and C_Item.GetItemCount and C_Item.GetItemCount(itemID)
+  return clean(count) or 0
+end
+
 function Api.RequestItem(itemID)
   if C_Item and C_Item.RequestLoadItemDataByID then
     pcall(C_Item.RequestLoadItemDataByID, itemID)

@@ -171,7 +171,7 @@ end
 
 function Main.ShowCostTooltip(owner, r)
   if not r then return end
-  UI.Tooltip(owner, r.recipe.name, ns.Costing.CostLines(r, nameOf))
+  UI.Tooltip(owner, r.recipe.name, ns.Costing.CostLines(r, { name = nameOf, icon = Api.ItemIcon, have = Api.ItemCount }))
 end
 
 function Main.ShowTooltip(owner, r)

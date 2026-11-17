@@ -15,7 +15,8 @@ local L = {
   MATS = "Materials",
   YIELD = "Yield",
   MISSING = "No price: %s",
-  MAT = "%d × %s",
+  MAT = "|T%s:20:20:0:0:64:64:5:59:5:59|t %s %s", -- icon, have/need, name
+  HAVE = "%d/%d",
   TOTAL = "Total",
   TOTAL_SO_FAR = "Total so far",
   NO_MATS = "No materials",
@@ -119,8 +120,10 @@ function Costing.TooltipLines(r, cut, nameOf, ageText)
   return lines
 end
 
--- Cost tooltip: one line per material with where its price came from, then the total.
-function Costing.CostLines(r, nameOf)
+-- Cost tooltip, laid out like the profession window's reagents: icon, have/need, name;
+-- then the price and where it came from; then the total.
+-- item = { name(id), icon(id), have(id) }
+function Costing.CostLines(r, item)
   local U = ns.Util
   local lines = {}
   local function add(left, right, kind) lines[#lines + 1] = { left, right, kind } end
@@ -129,7 +132,10 @@ function Costing.CostLines(r, nameOf)
     return lines
   end
   for _, m in ipairs(r.mats) do
-    local left = string.format(L.MAT, m.n, nameOf(m.id))
+    local have = item.have(m.id) or 0
+    local count = string.format(L.HAVE, have, m.n)
+    if have >= m.n then count = U.Color("good", count) end
+    local left = string.format(L.MAT, tostring(item.icon(m.id)), count, item.name(m.id))
     if m.unit then
       local source = L.SOURCE[m.src]
       add(left, U.Money(m.unit * m.n) .. (source and (" " .. U.Color("muted", source)) or ""))

@@ -13,6 +13,7 @@ Mock = {
   merchant = {},                -- { { id, price, stack, available } }
   meta = { Version = "0.1.0" },
   secret = {},
+  bags = {},                    -- [itemID] = count
 }
 
 local noop = function() end
@@ -257,7 +258,7 @@ C_Item = {
     if not it then return nil end
     return it.name, "link", 1, 1, 1, "Trade Goods", "", 20, "", 134400, it.vendor or 0, 7, 0, it.bind or 0
   end,
-  GetItemCount = function() return 0 end,
+  GetItemCount = function(id) return Mock.bags[id] or 0 end,
   GetItemIconByID = function(id) local it = Mock.items[id] return it and it.icon end,
   RequestLoadItemDataByID = noop,
 }
@@ -369,7 +370,11 @@ function test(name, fn) table.insert(TESTS, { name = name, fn = fn }) end
 
 function Strip(s)
   if s == nil then return nil end
-  return (s:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|T.-|t", "✓"))
+  s = s:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+  return (s:gsub("|T(.-)|t", function(t)
+    if t:find("ReadyCheck", 1, true) then return "✓" end
+    return "[" .. (t:match("^([^:]+)") or "?") .. "]"
+  end))
 end
 
 local function show(v)
