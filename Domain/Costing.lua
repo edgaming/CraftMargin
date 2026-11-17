@@ -15,6 +15,11 @@ local L = {
   MATS = "Materials",
   YIELD = "Yield",
   MISSING = "No price: %s",
+  MAT = "%d × %s",
+  TOTAL = "Total",
+  TOTAL_SO_FAR = "Total so far",
+  NO_MATS = "No materials",
+  SOURCE = { ah = "AH", vendor = "vendor" },
   BEST = " |TInterface\\RaidFrame\\ReadyCheck-Ready:0|t",
 }
 
@@ -111,5 +116,27 @@ function Costing.TooltipLines(r, cut, nameOf, ageText)
   for _, id in ipairs(r.missing) do
     add(string.format(L.MISSING, nameOf(id)), nil, "bad")
   end
+  return lines
+end
+
+-- Cost tooltip: one line per material with where its price came from, then the total.
+function Costing.CostLines(r, nameOf)
+  local U = ns.Util
+  local lines = {}
+  local function add(left, right, kind) lines[#lines + 1] = { left, right, kind } end
+  if #r.mats == 0 then
+    add(L.NO_MATS, nil, "muted")
+    return lines
+  end
+  for _, m in ipairs(r.mats) do
+    local left = string.format(L.MAT, m.n, nameOf(m.id))
+    if m.unit then
+      local source = L.SOURCE[m.src]
+      add(left, U.Money(m.unit * m.n) .. (source and (" " .. U.Color("muted", source)) or ""))
+    else
+      add(left, L.NO_PRICE, "bad")
+    end
+  end
+  add(r.matsKnown and L.TOTAL or L.TOTAL_SO_FAR, U.Money(r.cost), "head")
   return lines
 end

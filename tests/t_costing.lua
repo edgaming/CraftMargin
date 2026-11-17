@@ -127,3 +127,18 @@ test("tooltip for a bound product and missing prices", function()
     "No price: Mystery Dust |  | bad",
   }, "\n"))
 end)
+
+test("cost tooltip lists each material with its source, then the total", function()
+  local ns = Boot()
+  local r = ns.Costing.Evaluate(recipe({ { id = 2996, n = 3 }, { id = 2320, n = 3 }, { id = 9999, n = 1 } }),
+    src({ [4238] = 1000 }, { [2996] = { 150, "ah" }, [2320] = { 10, "vendor" } }), 0.05)
+  local names = { [2996] = "Bolt of Linen Cloth", [2320] = "Coarse Thread", [9999] = "Mystery Dust" }
+  eq(render(ns.Costing.CostLines(r, function(id) return names[id] end)), table.concat({
+    "3 × Bolt of Linen Cloth | 4s 50c AH | ",
+    "3 × Coarse Thread | 30c vendor | ",
+    "1 × Mystery Dust | no price | bad",
+    "Total so far | 4s 80c | head",
+  }, "\n"))
+  r = ns.Costing.Evaluate(recipe({}), src({ [4238] = 1000 }), 0.05)
+  eq(render(ns.Costing.CostLines(r, function() end)), "No materials |  | muted")
+end)

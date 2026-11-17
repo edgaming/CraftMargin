@@ -97,6 +97,29 @@ local function Tab(i)
   return tab
 end
 
+local function OpenRow(row)
+  if row.data and not Api.OpenRecipe(row.data.recipe.id) then print(L.CANT_OPEN) end
+end
+
+-- An invisible hover area over part of a row: its own tooltip, the row's highlight, and the
+-- row's click (clicking anywhere on a row opens the recipe).
+local function HoverArea(row, left, right, showTooltip)
+  local hit = CreateFrame("Button", nil, row)
+  hit:SetPoint("TOPLEFT", row, "TOPLEFT", left, 0)
+  hit:SetSize(right - left, ROW_H)
+  hit:RegisterForClicks("LeftButtonUp")
+  hit:SetScript("OnEnter", function(self)
+    row:LockHighlight()
+    if row.data then showTooltip(self, row.data) end
+  end)
+  hit:SetScript("OnLeave", function()
+    row:UnlockHighlight()
+    GameTooltip:Hide()
+  end)
+  hit:SetScript("OnClick", function() OpenRow(row) end)
+  return hit
+end
+
 local function Row(i)
   local row = Main.rows[i]
   if row then return row end
@@ -104,28 +127,13 @@ local function Row(i)
   row:SetSize(CONTENT_W, ROW_H)
   row:SetPoint("TOPLEFT", 0, -(i - 1) * ROW_H)
   row:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
+  row:RegisterForClicks("LeftButtonUp")
+  row:SetScript("OnClick", OpenRow)
 
   row.name = UI.Text(row, "GameFontHighlightSmall", "LEFT")
   row.name:SetPoint("LEFT", 4, 0)
   row.name:SetWidth(COL_COST - 90)
   row.name:SetWordWrap(false)
-
-  -- Hovering the name shows what the recipe makes; clicking opens it in the profession window.
-  row.nameHit = CreateFrame("Button", nil, row)
-  row.nameHit:SetPoint("TOPLEFT", 0, 0)
-  row.nameHit:SetSize(COL_COST - 86, ROW_H)
-  row.nameHit:RegisterForClicks("LeftButtonUp")
-  row.nameHit:SetScript("OnEnter", function(self)
-    row:LockHighlight()
-    if row.data then Api.RecipeTooltip(self, row.data.recipe.id, row.data.recipe.out) end
-  end)
-  row.nameHit:SetScript("OnLeave", function()
-    row:UnlockHighlight()
-    GameTooltip:Hide()
-  end)
-  row.nameHit:SetScript("OnClick", function()
-    if row.data and not Api.OpenRecipe(row.data.recipe.id) then print(L.CANT_OPEN) end
-  end)
   row.cost = UI.Text(row, "GameFontHighlightSmall", "RIGHT")
   SetColumn(row.cost, row, COL_COST)
   row.sells = UI.Text(row, "GameFontHighlightSmall", "RIGHT")
@@ -137,22 +145,20 @@ local function Row(i)
   row.tag:SetText(L.VENDOR_TAG)
   UI.SetColor(row.tag, "muted")
 
-  -- Hovering the profit shows the money math.
-  row.hit = CreateFrame("Frame", nil, row)
-  row.hit:SetSize(CONTENT_W - COL_SELLS - 4, ROW_H)
-  row.hit:SetPoint("RIGHT", row, "LEFT", CONTENT_W, 0)
-  row.hit:EnableMouse(true)
-  row.hit:SetScript("OnEnter", function(self)
-    row:LockHighlight()
-    Main.ShowTooltip(self, row.data)
+  -- Name: what the recipe makes. Cost: the materials. Profit: the money math.
+  row.nameHit = HoverArea(row, 0, COL_COST - 86, function(self, r)
+    Api.RecipeTooltip(self, r.recipe.id, r.recipe.out)
   end)
-  row.hit:SetScript("OnLeave", function()
-    row:UnlockHighlight()
-    GameTooltip:Hide()
-  end)
+  row.costHit = HoverArea(row, COL_COST - 82, COL_COST + 4, Main.ShowCostTooltip)
+  row.hit = HoverArea(row, COL_SELLS + 4, CONTENT_W, Main.ShowTooltip)
 
   Main.rows[i] = row
   return row
+end
+
+function Main.ShowCostTooltip(owner, r)
+  if not r then return end
+  UI.Tooltip(owner, r.recipe.name, ns.Costing.CostLines(r, nameOf))
 end
 
 function Main.ShowTooltip(owner, r)

@@ -312,7 +312,7 @@ test("the row stays highlighted while hovering its name or profit", function()
   OpenProfession("Tailoring", 197)
   Slash()
   local row = Window().rows[1].row
-  for _, area in ipairs({ row.nameHit, row.hit }) do
+  for _, area in ipairs({ row.nameHit, row.costHit, row.hit }) do
     Enter(area)
     eq(row:IsLit(), true)
     Leave(area)
@@ -361,4 +361,37 @@ test("bind-on-pickup products with a vendor value are listed, vendor only", func
   eq(w.rows[1].row.tag:IsShown(), true)
   Enter(w.rows[1].row.hit)
   eq(Strip(GameTooltip.lines[2][2]), "binds when picked up")
+end)
+
+test("clicking anywhere on a row opens its recipe", function()
+  world()
+  prices()
+  OpenProfession("Tailoring", 197)
+  Slash()
+  local row = Window().rows[2].row
+  for _, target in ipairs({ row, row.nameHit, row.costHit, row.hit }) do
+    Mock.openedRecipe = nil
+    Click(target)
+    eq(Mock.openedRecipe, 2963)
+  end
+end)
+
+test("hovering the cost shows the materials", function()
+  world()
+  prices()
+  OpenProfession("Tailoring", 197)
+  Slash()
+  local row = Window().rows[1].row
+  Enter(row.costHit)
+  eq(row:IsLit(), true)
+  local got = {}
+  for _, l in ipairs(GameTooltip.lines) do table.insert(got, Strip(l[1]) .. (l[2] and (" = " .. Strip(l[2])) or "")) end
+  eq(table.concat(got, "\n"), table.concat({
+    "Linen Bag",
+    "3 × Bolt of Linen Cloth = 4s 50c AH",
+    "3 × Coarse Thread = 30c vendor",
+    "Total = 4s 80c",
+  }, "\n"))
+  Leave(row.costHit)
+  eq(row:IsLit(), false)
 end)
