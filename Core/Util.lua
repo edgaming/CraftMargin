@@ -34,7 +34,9 @@ function Util.Color(kind, text)
   return "|c" .. Util.Hex(kind) .. text .. "|r"
 end
 
-local G, S, C = "|cffffd700g|r", "|cffc7c7cfs|r", "|cffeda55fc|r"
+-- Coin icons, sized to the text they sit in.
+local function coin(name) return "|TInterface\\MoneyFrame\\UI-" .. name .. "Icon:0:0:2:0|t" end
+local G, S, C = coin("Gold"), coin("Silver"), coin("Copper")
 
 -- 41000 -> "4g 10s"; 8500 -> "85s"; 1234 -> "12s 34c". Copper is dropped once there is gold.
 function Util.Money(copper)

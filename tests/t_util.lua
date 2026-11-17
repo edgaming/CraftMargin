@@ -54,3 +54,9 @@ test("a failing event handler is caught and reported", function()
   ok(Printed("kaboom"))
   ok(reached, "later handlers still run")
 end)
+
+test("money uses coin icons", function()
+  local U = Boot().Util
+  eq(U.Money(41005), "4|TInterface\\MoneyFrame\\UI-GoldIcon:0:0:2:0|t 10|TInterface\\MoneyFrame\\UI-SilverIcon:0:0:2:0|t")
+  eq(U.Money(7), "7|TInterface\\MoneyFrame\\UI-CopperIcon:0:0:2:0|t")
+end)

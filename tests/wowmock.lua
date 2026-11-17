@@ -373,6 +373,8 @@ function Strip(s)
   s = s:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
   return (s:gsub("|T(.-)|t", function(t)
     if t:find("ReadyCheck", 1, true) then return "✓" end
+    local coin = t:match("UI%-(%a+)Icon")
+    if coin then return ({ Gold = "g", Silver = "s", Copper = "c" })[coin] end
     return "[" .. (t:match("^([^:]+)") or "?") .. "]"
   end))
 end
