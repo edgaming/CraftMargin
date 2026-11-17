@@ -197,11 +197,31 @@ function Api.AucOnUpdate(fn)
   return (pcall(a.RegisterForDBUpdate, Api.CALLER, fn))
 end
 
+-- Shopping search for item names with quantities. Needs the AH open. Returns true if sent.
+function Api.AucSearch(terms)
+  local a = auc()
+  if not a then return false end
+  if a.MultiSearchAdvanced then
+    return (pcall(a.MultiSearchAdvanced, Api.CALLER, terms))
+  end
+  if a.MultiSearchExact then
+    local names = {}
+    for i, t in ipairs(terms) do names[i] = t.searchString end
+    return (pcall(a.MultiSearchExact, Api.CALLER, names))
+  end
+  return false
+end
+
+function Api.ShiftDown()
+  return IsShiftKeyDown and IsShiftKeyDown() or false
+end
+
 -- For /margin debug.
 function Api.AucFunctions()
   local a, out = auc(), {}
   if not a then return out end
-  for _, name in ipairs({ "GetAuctionPriceByItemID", "GetAuctionAgeByItemID", "RegisterForDBUpdate" }) do
+  for _, name in ipairs({ "GetAuctionPriceByItemID", "GetAuctionAgeByItemID", "RegisterForDBUpdate",
+    "MultiSearchAdvanced", "MultiSearchExact" }) do
     out[#out + 1] = name .. (a[name] and " yes" or " no")
   end
   return out

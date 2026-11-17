@@ -16,6 +16,8 @@ local L = {
   NOTHING = "None of these recipes make something you can sell.",
   FOOTER = "%d recipes · read %s",
   VENDOR_TAG = "vendor",
+  HINT = "Click: open recipe  ·  Shift-click: search materials at the AH",
+  QUEUED = "Searching for %s materials when you open the AH",
   CANT_OPEN = "Craft Margin: this client can't open a recipe from here. Open the profession window yourself.",
 }
 
@@ -98,8 +100,14 @@ local function Tab(i)
   return tab
 end
 
+-- Click opens the recipe; shift-click searches its materials at the auction house.
 local function OpenRow(row)
-  if row.data and not Api.OpenRecipe(row.data.recipe.id) then print(L.CANT_OPEN) end
+  if not row.data then return end
+  if Api.ShiftDown() then
+    ns.Shopping.Request(row.data)
+  elseif not Api.OpenRecipe(row.data.recipe.id) then
+    print(L.CANT_OPEN)
+  end
 end
 
 -- An invisible hover area over part of a row: its own tooltip, the row's highlight, and the
@@ -232,6 +240,9 @@ function Main.Create()
   Main.footer = UI.Text(f, "GameFontDisableSmall", "LEFT")
   Main.footer:SetPoint("BOTTOMLEFT", 14, 12)
 
+  Main.hint = UI.Text(f, "GameFontDisableSmall", "RIGHT")
+  Main.hint:SetPoint("BOTTOMRIGHT", -30, 12)
+
   f:SetScript("OnShow", function() ns.Safe("window", Main.Refresh) end)
   return f
 end
@@ -317,6 +328,10 @@ function Main.Refresh()
   Main.empty:SetText(message or "")
   Main.empty:SetShown(message ~= nil)
   Main.footer:SetText(footer)
+  local queued = ns.Shopping.Pending()
+  Main.hint:SetText(queued and string.format(L.QUEUED, queued.recipe) or L.HINT)
+  UI.SetColor(Main.hint, queued and "warn" or "muted")
+  Main.hint:SetShown(#rows > 0 or queued ~= nil)
 
   for i, r in ipairs(rows) do DrawRow(Row(i), r) end
   for i = #rows + 1, #Main.rows do

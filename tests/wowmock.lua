@@ -36,6 +36,7 @@ print = function(...)
 end
 GetBuildInfo = function() return "1.60.1", "70888", "Nov 2026", 16001 end
 InCombatLockdown = function() return false end
+IsShiftKeyDown = function() return Mock.shift == true end
 issecretvalue = function(v) return v ~= nil and Mock.secret[v] == true end
 UnitFactionGroup = function() return Mock.faction, Mock.faction end
 SlashCmdList = {}
@@ -287,11 +288,19 @@ end
 
 function InstallAuctionator(opts)
   opts = opts or {}
-  Mock.auc = { prices = {}, ages = {}, callbacks = {} }
+  Mock.auc = { prices = {}, ages = {}, callbacks = {}, searches = {} }
   local v1 = {
     GetAuctionPriceByItemID = function(caller, id)
       assert(type(caller) == "string", "callerID")
       return Mock.auc.prices[id]
+    end,
+    MultiSearchAdvanced = not opts.noAdvanced and function(caller, terms)
+      assert(type(caller) == "string", "callerID")
+      table.insert(Mock.auc.searches, { kind = "advanced", terms = terms })
+    end or nil,
+    MultiSearchExact = function(caller, names)
+      assert(type(caller) == "string", "callerID")
+      table.insert(Mock.auc.searches, { kind = "exact", terms = names })
     end,
     RegisterForDBUpdate = function(caller, cb)
       assert(type(caller) == "string", "callerID")
@@ -307,6 +316,25 @@ end
 function SetPrice(id, copper, ageDays)
   Mock.auc.prices[id] = copper
   Mock.auc.ages[id] = ageDays or 0
+end
+
+function OpenAuctionHouse() FireEvent("AUCTION_HOUSE_SHOW"); Advance(1) end
+function CloseAuctionHouse() FireEvent("AUCTION_HOUSE_CLOSED") end
+function ShiftClick(f) Mock.shift = true; Click(f); Mock.shift = false; Advance(1) end
+
+-- Last Auctionator search as "Name xN, Name xN".
+function LastSearch()
+  local s = Mock.auc.searches[#Mock.auc.searches]
+  if not s then return nil end
+  local out = {}
+  for _, t in ipairs(s.terms) do
+    if type(t) == "table" then
+      table.insert(out, t.searchString .. " x" .. t.quantity .. (t.isExact and "" or " (not exact)"))
+    else
+      table.insert(out, t)
+    end
+  end
+  return s.kind .. ": " .. table.concat(out, ", ")
 end
 
 function AucScanFinished()

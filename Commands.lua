@@ -36,6 +36,8 @@ function Commands.Debug()
   say("Open profession: " .. (open and (open.name .. " (" .. open.skillLine .. ")") or "none"))
   local builtin, recorded = ns.Vendor.Count()
   say(string.format("Vendor prices: %d built in, %d seen", builtin, recorded))
+  local queued = ns.Shopping.Pending()
+  say("Queued AH search: " .. (queued and (queued.recipe .. ", " .. #queued.terms .. " items") or "none"))
   say(string.format("Errors: %d", #ns.errors))
   for _, e in ipairs(ns.errors) do say("  " .. e) end
 end
