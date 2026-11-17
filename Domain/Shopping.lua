@@ -8,7 +8,6 @@ local Api = ns.Api
 
 local L = {
   QUEUED = "Craft Margin: open the auction house to search for %s materials.",
-  ALL_VENDOR = "Craft Margin: %s only uses vendor materials.",
   NO_MATS = "Craft Margin: %s has no materials to search for.",
   CANT_SEARCH = "Craft Margin: this Auctionator version can't search for other addons.",
 }
@@ -19,18 +18,16 @@ local NAME_RETRIES = 6
 local ahOpen = false
 local pending -- { recipe = name, terms = {...}, at = time }
 
--- Pure: Auctionator search terms for one craft. Vendor-priced materials are left out.
+-- Pure: Auctionator search terms for one craft, every material included.
 -- Returns terms, or nil plus the item IDs whose names aren't loaded yet.
 function Shopping.Terms(r, nameOf)
   local terms, unloaded = {}, {}
   for _, m in ipairs(r.mats) do
-    if m.src ~= "vendor" then
-      local name = nameOf(m.id)
-      if name then
-        terms[#terms + 1] = { searchString = name, isExact = true, quantity = m.n }
-      else
-        unloaded[#unloaded + 1] = m.id
-      end
+    local name = nameOf(m.id)
+    if name then
+      terms[#terms + 1] = { searchString = name, isExact = true, quantity = m.n }
+    else
+      unloaded[#unloaded + 1] = m.id
     end
   end
   if #unloaded > 0 then return nil, unloaded end
@@ -57,7 +54,6 @@ function Shopping.Request(r, attempt)
     ns.After(0.5, function() Shopping.Request(r, attempt + 1) end)
     return
   end
-  if #terms == 0 then return print(string.format(L.ALL_VENDOR, name)) end
   if ahOpen then
     pending = nil
     run(terms)
