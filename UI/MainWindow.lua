@@ -15,6 +15,7 @@ local L = {
   NO_PROFS = "You have no crafting professions.",
   NOTHING = "None of these recipes make something you can sell.",
   FOOTER = "%d recipes · read %s",
+  VENDOR_TAG = "vendor",
   CANT_OPEN = "Craft Margin: this client can't open a recipe from here. Open the profession window yourself.",
 }
 
@@ -22,7 +23,7 @@ local W, H = 560, 440
 local ROW_H = 18
 local CONTENT_W = 516
 -- Right edges of the money columns, in row coordinates.
-local COL_COST, COL_SELLS, COL_PROFIT = 330, 420, 510
+local COL_COST, COL_SELLS, COL_PROFIT = 290, 375, 462
 
 Main.rows, Main.tabs = {}, {}
 
@@ -37,14 +38,14 @@ function Main.Professions()
   return out
 end
 
-local function sellable(itemID)
-  local _, bind = Api.Item(itemID)
-  if bind == nil then Api.RequestItem(itemID) end
-  return ns.Ranking.SellableBind(bind)
-end
-
 local function evaluate(recipe)
-  return ns.Costing.Evaluate(recipe, ns.Prices.Sell, ns.Prices.Material, ns.AH_CUT)
+  local _, bind, value = Api.Item(recipe.out)
+  if bind == nil then Api.RequestItem(recipe.out) end
+  local bound = ns.Ranking.SellableBind(bind) == false
+  if bound and value == 0 then return nil end -- can't be sold anywhere
+  return ns.Costing.Evaluate(recipe, {
+    sell = ns.Prices.Sell, mat = ns.Prices.Material, vendor = ns.Prices.Vendor, bound = bound,
+  }, ns.AH_CUT)
 end
 
 local function nameOf(itemID)
@@ -53,9 +54,9 @@ end
 
 -- Everything the window shows for one profession.
 function Main.Compute(prof)
-  local view = { entry = ns.Recipes.For(prof), rows = {}, bound = 0 }
+  local view = { entry = ns.Recipes.For(prof), rows = {}, skipped = 0 }
   if view.entry then
-    view.rows, view.bound = ns.Ranking.Build(view.entry.recipes, evaluate, sellable)
+    view.rows, view.skipped = ns.Ranking.Build(view.entry.recipes, evaluate)
   end
   local hasAny, newest = false, nil
   for _, r in ipairs(view.rows) do
@@ -131,11 +132,15 @@ local function Row(i)
   SetColumn(row.sells, row, COL_SELLS)
   row.profit = UI.Text(row, "GameFontHighlightSmall", "RIGHT")
   SetColumn(row.profit, row, COL_PROFIT)
+  row.tag = UI.Text(row, "GameFontDisableSmall", "LEFT")
+  row.tag:SetPoint("LEFT", row, "LEFT", COL_PROFIT + 5, 0)
+  row.tag:SetText(L.VENDOR_TAG)
+  UI.SetColor(row.tag, "muted")
 
   -- Hovering the profit shows the money math.
   row.hit = CreateFrame("Frame", nil, row)
-  row.hit:SetSize(COL_PROFIT - COL_SELLS, ROW_H)
-  row.hit:SetPoint("RIGHT", row, "LEFT", COL_PROFIT + 4, 0)
+  row.hit:SetSize(CONTENT_W - COL_SELLS - 4, ROW_H)
+  row.hit:SetPoint("RIGHT", row, "LEFT", CONTENT_W, 0)
   row.hit:EnableMouse(true)
   row.hit:SetScript("OnEnter", function(self)
     row:LockHighlight()
@@ -253,11 +258,13 @@ local function DrawRow(row, r)
     UI.SetColor(row.cost, "text")
     UI.SetColor(row.sells, "text")
     UI.SetColor(row.profit, r.profit >= 0 and "good" or "bad")
+    row.tag:SetShown(r.best == "vendor")
   else
     UI.SetColor(row.name, "muted")
-    row.cost:SetText(#r.missing == 1 and not r.sell and Util.Money(r.cost) or "—")
+    row.cost:SetText(r.matsKnown and Util.Money(r.cost) or "—")
     row.sells:SetText(r.gross and Util.Money(r.gross) or "—")
     row.profit:SetText("—")
+    row.tag:Hide()
     UI.SetColor(row.cost, "muted")
     UI.SetColor(row.sells, "muted")
     UI.SetColor(row.profit, "muted")

@@ -152,11 +152,12 @@ test("hovering the profit shows the money math", function()
   for _, l in ipairs(GameTooltip.lines) do table.insert(got, Strip(l[1]) .. (l[2] and (" = " .. Strip(l[2])) or "")) end
   eq(table.concat(got, "\n"), table.concat({
     "Linen Bag",
-    "Sells for = 12s (today)",
-    "AH cut (5%) = -60c",
-    "Revenue = 11s 40c",
+    "Auction house",
+    "  Sells for = 12s (today)",
+    "  AH cut (5%) = -60c",
+    "  Profit = +6s 60c (138%) ✓",
+    "Vendor = vendors won't buy it",
     "Materials = -4s 80c",
-    "Profit = +6s 60c (138%)",
   }, "\n"))
 end)
 
@@ -317,4 +318,47 @@ test("the row stays highlighted while hovering its name or profit", function()
     Leave(area)
     eq(row:IsLit(), false)
   end
+end)
+
+test("vendor beats the AH: tag shown, sorted by vendor profit", function()
+  world()
+  prices()
+  Item(2996, "Bolt of Linen Cloth", 0, 400) -- vendors pay 4s for a bolt, AH only 1s 50c
+  OpenProfession("Tailoring", 197)
+  Slash()
+  local w = Window()
+  eq(names(w), "Linen Bag,Bolt of Linen Cloth")
+  local bolt = w.rows[2]
+  eq(bolt.profit, "+3s")
+  eq(bolt.sells, "4s")
+  eq(bolt.row.tag:IsShown(), true)
+  eq(w.rows[1].row.tag:IsShown(), false, "AH rows have no tag")
+end)
+
+test("no AH price but a vendor value: priced, not grey", function()
+  world()
+  prices()
+  SetPrice(4238, nil)
+  Item(4238, "Linen Bag", 0, 250)
+  OpenProfession("Tailoring", 197)
+  Slash()
+  local w = Window()
+  eq(names(w), "Bolt of Linen Cloth,Linen Bag")
+  eq(w.rows[2].profit, "-2s 30c")
+  eq(w.rows[2].color, "bad")
+  eq(w.rows[2].row.tag:IsShown(), true)
+end)
+
+test("bind-on-pickup products with a vendor value are listed, vendor only", function()
+  world({ bagBind = 1 })
+  prices()
+  Item(4238, "Linen Bag", 1, 900)
+  OpenProfession("Tailoring", 197)
+  Slash()
+  local w = Window()
+  eq(names(w), "Linen Bag,Bolt of Linen Cloth")
+  eq(w.rows[1].profit, "+4s 20c", "AH price ignored: 9s - 4s 80c")
+  eq(w.rows[1].row.tag:IsShown(), true)
+  Enter(w.rows[1].row.hit)
+  eq(Strip(GameTooltip.lines[2][2]), "binds when picked up")
 end)

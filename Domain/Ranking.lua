@@ -3,23 +3,20 @@ local _, ns = ...
 local Ranking = {}
 ns.Ranking = Ranking
 
--- isSellable(itemID) -> true, false (binds on pickup) or nil (not known yet; kept).
--- Returns rows, number of recipes skipped because their product can't be sold.
-function Ranking.Build(recipes, evaluate, isSellable)
-  local rows, bound = {}, 0
+-- evaluate(recipe) -> row, or nil when the product can't be sold anywhere.
+-- Returns rows, number of recipes skipped.
+function Ranking.Build(recipes, evaluate)
+  local rows, skipped = {}, 0
   for _, rec in ipairs(recipes) do
-    if isSellable(rec.out) == false then
-      bound = bound + 1
-    else
-      rows[#rows + 1] = evaluate(rec)
-    end
+    local row = evaluate(rec)
+    if row then rows[#rows + 1] = row else skipped = skipped + 1 end
   end
   table.sort(rows, function(a, b)
     if a.complete ~= b.complete then return a.complete end
     if a.complete and a.profit ~= b.profit then return a.profit > b.profit end
     return (a.recipe.name or "") < (b.recipe.name or "")
   end)
-  return rows, bound
+  return rows, skipped
 end
 
 -- Bind types that can't go on the auction house: on pickup (1), quest (4).

@@ -113,12 +113,12 @@ end
 ---------------------------------------------------------------------------
 -- Items
 
--- name, bindType (nil until the game has the item cached)
+-- name, bindType, vendor sell value (all nil until the game has the item cached)
 function Api.Item(itemID)
   local getInfo = (C_Item and C_Item.GetItemInfo) or GetItemInfo
   if not getInfo then return nil end
   local r = { getInfo(itemID) }
-  return clean(r[1]), clean(r[14])
+  return clean(r[1]), clean(r[14]), clean(r[11])
 end
 
 function Api.RequestItem(itemID)

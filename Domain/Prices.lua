@@ -17,6 +17,12 @@ function Prices.Sell(itemID)
   return Api.AucPrice(itemID)
 end
 
+-- What a vendor pays for one; 0 if vendors won't buy it, nil if the item isn't loaded yet.
+function Prices.Vendor(itemID)
+  local _, _, value = Api.Item(itemID)
+  return value
+end
+
 -- copper, source ("vendor" or "ah"), or nil when nothing is known.
 function Prices.Material(itemID)
   local ah, vendor = Api.AucPrice(itemID), ns.Vendor.Price(itemID)
