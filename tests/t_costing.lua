@@ -140,7 +140,7 @@ test("cost tooltip lists each material with its source, then the total", functio
     "[i2996] 5/3 Bolt of Linen Cloth | 4s 50c AH | ",
     "[i2320] 1/3 Coarse Thread | 30c vendor | ",
     "[i9999] 0/1 Mystery Dust | no price | bad",
-    "Total so far | 4s 80c | head",
+    "Total so far | 4s 80c | total",
   }, "\n"))
   r = ns.Costing.Evaluate(recipe({}), src({ [4238] = 1000 }), 0.05)
   eq(render(ns.Costing.CostLines(r, item)), "No materials |  | muted")

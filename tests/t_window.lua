@@ -407,3 +407,16 @@ test("each row shows its product's icon, a question mark until it loads", functi
   eq(w.rows[1].row.icon:GetTexture(), 133639)
   eq(w.rows[2].row.icon:GetTexture(), 134400, "no icon yet")
 end)
+
+test("cost tooltip total: gold label, white amount", function()
+  world()
+  prices()
+  OpenProfession("Tailoring", 197)
+  Slash()
+  Enter(Window().rows[1].row.costHit)
+  local total = GameTooltip.lines[#GameTooltip.lines]
+  eq(total[1], "Total")
+  eq(total.left[2], NS.Util.RGB.head[2], "gold label")
+  eq(total[3][1], 1, "white amount")
+  eq(total[3][3], 1, "white amount")
+end)

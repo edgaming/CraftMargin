@@ -15,7 +15,7 @@ local L = {
   MATS = "Materials",
   YIELD = "Yield",
   MISSING = "No price: %s",
-  MAT = "|T%s:20:20:0:0:64:64:5:59:5:59|t %s %s", -- icon, have/need, name
+  MAT = "|T%s:24:24:0:0:64:64:5:59:5:59|t %s %s", -- icon, have/need, name
   HAVE = "%d/%d",
   TOTAL = "Total",
   TOTAL_SO_FAR = "Total so far",
@@ -143,6 +143,6 @@ function Costing.CostLines(r, item)
       add(left, L.NO_PRICE, "bad")
     end
   end
-  add(r.matsKnown and L.TOTAL or L.TOTAL_SO_FAR, U.Money(r.cost), "head")
+  add(r.matsKnown and L.TOTAL or L.TOTAL_SO_FAR, U.Money(r.cost), "total")
   return lines
 end

@@ -135,7 +135,9 @@ function GameTooltip:ClearLines() self.lines = {} end
 function GameTooltip:SetRecipeResultItem(recipeID) self.recipe = recipeID end
 function GameTooltip:SetItemByID(itemID) self.item = itemID end
 function GameTooltip:AddLine(text) table.insert(self.lines, { text }) end
-function GameTooltip:AddDoubleLine(l, r, lr, lg, lb, rr, rg, rb) table.insert(self.lines, { l, r, { rr, rg, rb } }) end
+function GameTooltip:AddDoubleLine(l, r, lr, lg, lb, rr, rg, rb)
+  table.insert(self.lines, { l, r, { rr, rg, rb }, left = { lr, lg, lb } })
+end
 
 ---------------------------------------------------------------------------
 -- Timers and events
