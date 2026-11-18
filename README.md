@@ -3,13 +3,14 @@
 A World of Warcraft addon for WoW Forever that shows which of your recipes make the most money.
 
 - One tab per crafting profession, recipes sorted by profit.
-- Sale prices come from Auctionator. Materials use the cheaper of the AH price and the vendor price.
+- Prices come from Auctionator or TradeSkillMaster, whichever you have (pick with the cogwheel if you have both). Materials use the cheaper of the AH price and the vendor price.
+- Shift-click a recipe to shop for its materials: Auctionator searches for you; with TSM you get a search string to paste.
 - Hover a profit to see the math: sale price, yield, 5% AH cut, materials.
 - It never posts, buys or whispers anything.
 
 ## Install
 
-Unzip so the folder sits directly in `Interface\AddOns\CraftMargin\` (the `.toc` must be inside that folder, not one level deeper). Requires [Auctionator](https://www.curseforge.com/wow/addons/auctionator).
+Unzip so the folder sits directly in `Interface\AddOns\CraftMargin\` (the `.toc` must be inside that folder, not one level deeper). Requires [Auctionator](https://www.curseforge.com/wow/addons/auctionator) or [TradeSkillMaster](https://www.curseforge.com/wow/addons/tradeskill-master) for prices.
 
 ## Quick start
 

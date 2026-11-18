@@ -14,7 +14,10 @@ local function say(text) print(L.PREFIX .. text) end
 function Commands.Debug()
   local _, build, _, iface = GetBuildInfo()
   say(string.format("v%s · interface %s · build %s · %s", ns.version, tostring(iface), tostring(build), Api.Faction()))
+  local source = ns.Prices.Source()
+  say("Price source: " .. (source and source.name or "none") .. " (saved: " .. tostring(ns.db.source or "auto") .. ")")
   say("Auctionator: " .. (Api.HasAuctionator() and table.concat(Api.AucFunctions(), ", ") or "not found"))
+  say("TSM: " .. (Api.HasTSM() and ("found, Linen Cloth = " .. tostring(Api.TSMPrice(2589))) or "not found"))
   say("Prices updated: " .. (ns.db.priceUpdatedAt and ns.Util.Ago(Api.Now() - ns.db.priceUpdatedAt) or "never seen"))
   for _, p in ipairs(Api.Professions()) do
     local entry = ns.Recipes.For(p)

@@ -116,6 +116,14 @@ function Frame:UnlockHighlight() self._lit = false end
 function Frame:IsLit() return self._lit == true end
 function Frame:SetTexture(t) self._texture = t end
 function Frame:GetTexture() return self._texture end
+function Frame:HighlightText() self._highlighted = true end
+function Frame:ClearFocus() self._focus = false end
+function Frame:SetFocus() self._focus = true end
+function Frame:SetChecked(v) self._checked = v and true or false end
+function Frame:GetChecked() return self._checked == true end
+function Frame:Enable() self._disabled = false end
+function Frame:Disable() self._disabled = true end
+function Frame:IsEnabled() return not self._disabled end
 function Frame:SetText(t) self._text = t end
 function Frame:GetText() return self._text end
 function Frame:GetStringWidth() return #(self._text or "") * 6 end
@@ -315,6 +323,18 @@ function InstallAuctionator(opts)
   end
   Auctionator = { API = { v1 = v1 } }
 end
+
+function InstallTSM()
+  Mock.tsm = { prices = {}, strings = {} }
+  TSM_API = {
+    GetCustomPriceValue = function(str, itemString)
+      table.insert(Mock.tsm.strings, str)
+      return Mock.tsm.prices[tonumber(itemString:match("^i:(%d+)$"))]
+    end,
+  }
+end
+
+function SetTSMPrice(id, copper) Mock.tsm.prices[id] = copper end
 
 function SetPrice(id, copper, ageDays)
   Mock.auc.prices[id] = copper

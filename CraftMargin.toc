@@ -21,4 +21,6 @@ Domain\Ranking.lua
 Domain\Shopping.lua
 UI\Widgets.lua
 UI\MainWindow.lua
+UI\Settings.lua
+UI\CopyBox.lua
 Commands.lua

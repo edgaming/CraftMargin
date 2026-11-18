@@ -222,6 +222,24 @@ function Api.ShiftDown()
   return IsShiftKeyDown and IsShiftKeyDown() or false
 end
 
+---------------------------------------------------------------------------
+-- TradeSkillMaster
+
+-- 14-day market value, falling back to the latest lowest price.
+Api.TSM_PRICE = "first(dbmarket, dbminbuyout)"
+
+function Api.HasTSM()
+  return TSM_API ~= nil and TSM_API.GetCustomPriceValue ~= nil
+end
+
+function Api.TSMPrice(itemID)
+  if not Api.HasTSM() then return nil end
+  local ok, v = pcall(TSM_API.GetCustomPriceValue, Api.TSM_PRICE, "i:" .. itemID)
+  v = ok and clean(v) or nil
+  if type(v) ~= "number" or v <= 0 then return nil end
+  return v
+end
+
 -- For /margin debug.
 function Api.AucFunctions()
   local a, out = auc(), {}

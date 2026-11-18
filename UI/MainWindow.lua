@@ -17,6 +17,8 @@ local L = {
   FOOTER = "%d recipes · read %s",
   VENDOR_TAG = "vendor",
   HINT = "Click: open recipe  ·  Shift-click: search materials at the AH",
+  HINT_CLICK = "Click: open recipe",
+  HINT_TSM = "Click: open recipe  ·  Shift-click: copy a TSM search",
   QUEUED = "Searching for %s materials when you open the AH",
   CANT_OPEN = "Craft Margin: this client can't open a recipe from here. Open the profession window yourself.",
 }
@@ -65,7 +67,7 @@ function Main.Compute(prof)
   for _, r in ipairs(view.rows) do
     if r.sell then
       hasAny = true
-      local age = Api.AucAge(r.recipe.out)
+      local age = ns.Prices.Age(r.recipe.out)
       if age and (newest == nil or age < newest) then newest = age end
     end
   end
@@ -176,7 +178,7 @@ end
 
 function Main.ShowTooltip(owner, r)
   if not r then return end
-  local age = Util.DaysOld(Api.AucAge(r.recipe.out))
+  local age = Util.DaysOld(ns.Prices.Age(r.recipe.out))
   UI.Tooltip(owner, r.recipe.name, ns.Costing.TooltipLines(r, ns.AH_CUT, nameOf, age))
 end
 
@@ -244,6 +246,7 @@ function Main.Create()
   Main.hint:SetPoint("BOTTOMRIGHT", -30, 12)
 
   f:SetScript("OnShow", function() ns.Safe("window", Main.Refresh) end)
+  ns.UI.Settings.Create(f)
   return f
 end
 
@@ -329,7 +332,9 @@ function Main.Refresh()
   Main.empty:SetShown(message ~= nil)
   Main.footer:SetText(footer)
   local queued = ns.Shopping.Pending()
-  Main.hint:SetText(queued and string.format(L.QUEUED, queued.recipe) or L.HINT)
+  local source = ns.Prices.Source()
+  local hint = (not source and L.HINT_CLICK) or (source.key == "tsm" and L.HINT_TSM) or L.HINT
+  Main.hint:SetText(queued and string.format(L.QUEUED, queued.recipe) or hint)
   UI.SetColor(Main.hint, queued and "warn" or "muted")
   Main.hint:SetShown(#rows > 0 or queued ~= nil)
 

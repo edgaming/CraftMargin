@@ -10,6 +10,7 @@ local L = {
   QUEUED = "Craft Margin: open the auction house to search for %s materials.",
   NO_MATS = "Craft Margin: %s has no materials to search for.",
   CANT_SEARCH = "Craft Margin: this Auctionator version can't search for other addons.",
+  NEEDS_ADDON = "Craft Margin: AH search needs Auctionator or TSM.",
 }
 
 Shopping.EXPIRE = 600 -- a queued search is dropped after 10 minutes
@@ -34,6 +35,13 @@ function Shopping.Terms(r, nameOf)
   return terms
 end
 
+-- Pure: TSM search string for one craft, e.g. "i:2996/x3;i:2320/x3".
+function Shopping.TSMString(r)
+  local parts = {}
+  for _, m in ipairs(r.mats) do parts[#parts + 1] = string.format("i:%d/x%d", m.id, m.n) end
+  return table.concat(parts, ";")
+end
+
 local function run(terms)
   if not Api.AucSearch(terms) then print(L.CANT_SEARCH) end
 end
@@ -45,7 +53,14 @@ end
 
 function Shopping.Request(r, attempt)
   local name = r.recipe.name or "?"
+  local source = ns.Prices.Source()
+  if not source then return print(L.NEEDS_ADDON) end
   if #r.mats == 0 then return print(string.format(L.NO_MATS, name)) end
+  if source.key == "tsm" then
+    -- TSM can't be told to search, so hand the player a search string to paste.
+    ns.Emit("TSM_SEARCH", name, Shopping.TSMString(r))
+    return
+  end
   local terms, unloaded = Shopping.Terms(r, function(id) return (Api.Item(id)) end)
   if not terms then
     attempt = attempt or 1
