@@ -37,6 +37,22 @@ function Commands.Debug()
     .. " · recipe tooltip: " .. (GameTooltip.SetRecipeResultItem and "yes" or "no"))
   local open = Api.OpenProfession()
   say("Open profession: " .. (open and (open.name .. " (" .. open.skillLine .. ")") or "none"))
+  local trainers = {}
+  for prof, t in pairs(ns.db.trainer) do
+    local n = 0
+    for _ in pairs(t) do n = n + 1 end
+    trainers[#trainers + 1] = prof .. " " .. n
+  end
+  say("Trainer recipes seen: " .. (#trainers > 0 and table.concat(trainers, ", ") or "none"))
+  local route = ns.Leveling.last
+  if route and route.info then
+    local i = route.info
+    say(string.format("Last route: %d → %d, %d steps; left out: %d unpriced, %d no thresholds, %d not seen at a trainer",
+      route.from, route.to, #route.steps, i.unpriced, i.noThresholds, i.untrained))
+    local names = {}
+    for _, r in ipairs(i.mismatches) do names[#names + 1] = string.format("%s (%d)", r.name, r.id) end
+    if #names > 0 then say("Grey mismatches: " .. table.concat(names, ", ")) end
+  end
   local builtin, recorded = ns.Vendor.Count()
   say(string.format("Vendor prices: %d built in, %d seen", builtin, recorded))
   local queued = ns.Shopping.Pending()

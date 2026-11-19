@@ -196,13 +196,19 @@ end
 
 function GetProfessionInfo(index)
   for _, p in ipairs(Mock.professions) do
-    if p.index == index then return p.name, 1, 1, 300, 0, 0, p.skillLine end
+    if p.index == index then return p.name, 1, p.rank or 1, 300, 0, 0, p.skillLine end
   end
 end
 
 -- slot: 1/2 primary, 4 fishing, 5 cooking
-function AddProfession(name, skillLine, slot)
-  table.insert(Mock.professions, { name = name, skillLine = skillLine, index = slot })
+function AddProfession(name, skillLine, slot, rank)
+  table.insert(Mock.professions, { name = name, skillLine = skillLine, index = slot, rank = rank })
+end
+
+function SetSkill(skillLine, rank)
+  for _, p in ipairs(Mock.professions) do if p.skillLine == skillLine then p.rank = rank end end
+  FireEvent("SKILL_LINES_CHANGED")
+  Advance(1)
 end
 
 -- AddRecipe(197, { id=, name=, out=, mats={{id,n}}, min=, max=, learned= })
@@ -214,7 +220,8 @@ function AddRecipe(skillLine, r)
       reagentType = m.type or 1, required = m.required ~= false })
   end
   Mock.ts.recipes[skillLine][r.id] = {
-    info = { recipeID = r.id, name = r.name, learned = r.learned ~= false },
+    info = { recipeID = r.id, name = r.name, learned = r.learned ~= false, numSkillUps = r.points or 1,
+      maxTrivialLevel = r.grey or 0 },
     schematic = { recipeID = r.id, outputItemID = r.out, quantityMin = r.min or 1, quantityMax = r.max or r.min or 1,
       reagentSlotSchematics = slots },
   }
@@ -241,6 +248,7 @@ C_TradeSkillUI = {
     return ids
   end,
   OpenRecipe = function(id) Mock.openedRecipe = id end,
+  GetRecipeSourceText = function(id) return Mock.sources and Mock.sources[id] end,
   GetRecipeInfo = function(id) local r = openRecipes()[id] return r and r.info end,
   GetRecipeSchematic = function(id) local r = openRecipes()[id] return r and r.schematic end,
 }
@@ -277,6 +285,19 @@ function Item(id, name, bind, vendor, icon) Mock.items[id] = { name = name, bind
 
 ---------------------------------------------------------------------------
 -- Merchant
+
+-- Trainer window: { { name, profession, skill, cost } }
+Mock.trainer = {}
+GetNumTrainerServices = function() return #Mock.trainer end
+GetTrainerServiceInfo = function(i) local t = Mock.trainer[i] return t.name, "", t.kind or "available" end
+GetTrainerServiceSkillReq = function(i) local t = Mock.trainer[i] return t.profession, t.skill, true end
+GetTrainerServiceCost = function(i) return Mock.trainer[i].cost end
+
+function VisitTrainer(services)
+  Mock.trainer = services
+  FireEvent("TRAINER_SHOW")
+  Advance(1)
+end
 
 GetMerchantNumItems = function() return #Mock.merchant end
 GetMerchantItemID = function(i) return Mock.merchant[i] and Mock.merchant[i].id end

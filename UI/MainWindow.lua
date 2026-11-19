@@ -18,6 +18,10 @@ local L = {
   VENDOR_TAG = "vendor",
   HINT = "Click: open recipe  ·  Shift-click: search materials at the AH",
   HINT_CLICK = "Click: open recipe",
+  MODE_PROFIT = "Profit",
+  MODE_LEVEL = "Level up",
+  HINT_ROUTE = "Click: shop for this step  ·  Shift-click: open recipe",
+  HINT_ROUTE_TSM = "Click: copy a TSM search for this step  ·  Shift-click: open recipe",
   HINT_TSM = "Click: open recipe  ·  Shift-click: copy a TSM search",
   QUEUED = "Searching for %s materials when you open the AH",
   CANT_OPEN = "Craft Margin: this client can't open a recipe from here. Open the profession window yourself.",
@@ -25,7 +29,7 @@ local L = {
 
 -- Row look: font for names and money, row height, item icon size.
 local ROW_FONT, ROW_H, ICON = "GameFontHighlight", 22, 18
-local W, H = 620, 460
+local W, H = 620, 500
 local CONTENT_W = 576
 -- Right edges of the money columns, in row coordinates.
 local COL_COST, COL_SELLS, COL_PROFIT = 340, 435, 525
@@ -44,13 +48,9 @@ function Main.Professions()
 end
 
 local function evaluate(recipe)
-  local _, bind, value = Api.Item(recipe.out)
-  if bind == nil then Api.RequestItem(recipe.out) end
-  local bound = ns.Ranking.SellableBind(bind) == false
-  if bound and value == 0 then return nil end -- can't be sold anywhere
-  return ns.Costing.Evaluate(recipe, {
-    sell = ns.Prices.Sell, mat = ns.Prices.Material, vendor = ns.Prices.Vendor, bound = bound,
-  }, ns.AH_CUT)
+  local r, sellable = ns.Prices.Evaluate(recipe)
+  if not sellable then return nil end -- can't be sold anywhere
+  return r
 end
 
 local function nameOf(itemID)
@@ -82,10 +82,8 @@ local function SetColumn(fs, parent, right)
   fs:SetPoint("RIGHT", parent, "LEFT", right, 0)
 end
 
-local function Tab(i)
-  local tab = Main.tabs[i]
-  if tab then return tab end
-  tab = CreateFrame("Button", nil, Main.frame)
+local function MakeTab()
+  local tab = CreateFrame("Button", nil, Main.frame)
   tab:SetHeight(20)
   tab.text = UI.Text(tab, "GameFontNormal", "CENTER")
   tab.text:SetPoint("CENTER", 0, 1)
@@ -94,6 +92,13 @@ local function Tab(i)
   tab.line:SetHeight(2)
   tab.line:SetPoint("BOTTOMLEFT", 4, 0)
   tab.line:SetPoint("BOTTOMRIGHT", -4, 0)
+  return tab
+end
+
+local function Tab(i)
+  local tab = Main.tabs[i]
+  if tab then return tab end
+  tab = MakeTab()
   tab:SetScript("OnClick", function(self)
     ns.db.window.tab = self.skillLine
     Main.Refresh()
@@ -214,7 +219,7 @@ function Main.Create()
   local function header(text, right)
     local fs = UI.Text(f, "GameFontNormal", right and "RIGHT" or "LEFT")
     fs:SetText(text)
-    if right then fs:SetPoint("RIGHT", f, "TOPLEFT", 10 + right, -64) else fs:SetPoint("LEFT", f, "TOPLEFT", 14, -64) end
+    if right then fs:SetPoint("RIGHT", f, "TOPLEFT", 10 + right, -84) else fs:SetPoint("LEFT", f, "TOPLEFT", 14, -84) end
     return fs
   end
   Main.headers = {
@@ -223,11 +228,12 @@ function Main.Create()
   local rule = f:CreateTexture(nil, "ARTWORK")
   rule:SetColorTexture(1, 1, 1, 0.12)
   rule:SetHeight(1)
-  rule:SetPoint("TOPLEFT", 12, -74)
-  rule:SetPoint("TOPRIGHT", -12, -74)
+  rule:SetPoint("TOPLEFT", 12, -94)
+  rule:SetPoint("TOPRIGHT", -12, -94)
+  Main.rule = rule
 
   local scroll = CreateFrame("ScrollFrame", nil, f, "UIPanelScrollFrameTemplate")
-  scroll:SetPoint("TOPLEFT", 10, -78)
+  scroll:SetPoint("TOPLEFT", 10, -98)
   scroll:SetPoint("BOTTOMRIGHT", -30, 30)
   Main.content = CreateFrame("Frame", nil, scroll)
   Main.content:SetSize(CONTENT_W, 1)
@@ -245,8 +251,25 @@ function Main.Create()
   Main.hint = UI.Text(f, "GameFontDisableSmall", "RIGHT")
   Main.hint:SetPoint("BOTTOMRIGHT", -30, 12)
 
+  -- Profit | Level up
+  Main.modes = {}
+  for i, mode in ipairs({ { key = "profit", text = L.MODE_PROFIT }, { key = "level", text = L.MODE_LEVEL } }) do
+    local tab = MakeTab()
+    tab.key = mode.key
+    tab.text:SetFontObject("GameFontNormalSmall")
+    tab.text:SetText(mode.text)
+    tab:SetWidth(tab.text:GetStringWidth() + 20)
+    tab:SetPoint("TOPLEFT", f, "TOPLEFT", 12 + (i - 1) * 80, -28)
+    tab:SetScript("OnClick", function(self)
+      ns.db.window.mode = self.key
+      Main.Refresh()
+    end)
+    Main.modes[i] = tab
+  end
+
   f:SetScript("OnShow", function() ns.Safe("window", Main.Refresh) end)
   ns.UI.Settings.Create(f)
+  ns.UI.Route.Create(f)
   return f
 end
 
@@ -262,7 +285,7 @@ local function DrawTabs(profs, selected)
     local width = tab.text:GetStringWidth() + 20
     tab:SetWidth(width)
     tab:ClearAllPoints()
-    tab:SetPoint("TOPLEFT", Main.frame, "TOPLEFT", 12 + x, -28)
+    tab:SetPoint("TOPLEFT", Main.frame, "TOPLEFT", 12 + x, -52)
     x = x + width + 4
     local on = (p == selected)
     UI.SetColor(tab.text, on and "text" or "muted")
@@ -308,8 +331,15 @@ function Main.Refresh()
   end
   selected = selected or profs[1]
   DrawTabs(profs, selected)
+  local level = ns.db.window.mode == "level"
+  for _, tab in ipairs(Main.modes) do
+    local on = (tab.key == "level") == level
+    UI.SetColor(tab.text, on and "text" or "muted")
+    tab.line:SetShown(on)
+  end
 
   local rows, message, footer = {}, nil, ""
+  local showRoute = false
   local statusText, statusKind = ns.Prices.Status(false, nil)
   if not selected then
     message = L.NO_PROFS
@@ -318,25 +348,37 @@ function Main.Refresh()
     statusText, statusKind = view.status, view.statusKind
     if not view.entry then
       message = string.format(L.OPEN_ONCE, selected.name)
+    elseif level then
+      showRoute = true
+      ns.UI.Route.Refresh(selected)
+      footer = string.format(L.FOOTER, #view.entry.recipes, Util.Ago(Api.Now() - view.entry.readAt))
     else
       rows = view.rows
       if #rows == 0 then message = L.NOTHING end
       footer = string.format(L.FOOTER, #rows, Util.Ago(Api.Now() - view.entry.readAt))
     end
   end
+  ns.UI.Route.SetShown(showRoute)
+  Main.scroll:SetShown(not level)
+  Main.rule:SetShown(not level and message == nil)
 
   Main.status:SetText(statusText)
   UI.SetColor(Main.status, statusKind)
-  for _, h in ipairs(Main.headers) do h:SetShown(message == nil) end
+  for _, h in ipairs(Main.headers) do h:SetShown(message == nil and not level) end
   Main.empty:SetText(message or "")
   Main.empty:SetShown(message ~= nil)
   Main.footer:SetText(footer)
   local queued = ns.Shopping.Pending()
   local source = ns.Prices.Source()
-  local hint = (not source and L.HINT_CLICK) or (source.key == "tsm" and L.HINT_TSM) or L.HINT
+  local hint
+  if showRoute then
+    hint = (source and source.key == "tsm") and L.HINT_ROUTE_TSM or L.HINT_ROUTE
+  else
+    hint = (not source and L.HINT_CLICK) or (source.key == "tsm" and L.HINT_TSM) or L.HINT
+  end
   Main.hint:SetText(queued and string.format(L.QUEUED, queued.recipe) or hint)
   UI.SetColor(Main.hint, queued and "warn" or "muted")
-  Main.hint:SetShown(#rows > 0 or queued ~= nil)
+  Main.hint:SetShown(#rows > 0 or showRoute or queued ~= nil)
 
   for i, r in ipairs(rows) do DrawRow(Row(i), r) end
   for i = #rows + 1, #Main.rows do

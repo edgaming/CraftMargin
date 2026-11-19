@@ -17,10 +17,12 @@ function ns.InitDB()
   local db = CraftMarginDB
   db.window = db.window or {}
   db.vendor = db.vendor or {} -- [faction][itemID] = cheapest copper seen at a vendor
+  db.trainer = db.trainer or {} -- [profession][recipe name] = { skill, cost }
 
   CraftMarginCharDB = CraftMarginCharDB or {}
   local char = CraftMarginCharDB
-  char.profs = char.profs or {} -- [skillLine] = { name, readAt, recipes, noItem }
+  char.profs = char.profs or {} -- [skillLine] = { name, readAt, recipes, unlearned, noItem }
+  char.pins = char.pins or {} -- [skillLine] = { { from, to, id } } recipes pinned in the levelling route
 
   ns.db, ns.char = db, char
 end

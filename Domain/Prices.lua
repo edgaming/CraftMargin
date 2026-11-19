@@ -65,6 +65,18 @@ function Prices.Material(itemID)
   return nil
 end
 
+-- Profit for one recipe with current prices. Returns the result and whether the product can be
+-- sold at all (false: binds on pickup and vendors won't buy it).
+function Prices.Evaluate(recipe)
+  local _, bind, value = Api.Item(recipe.out)
+  if bind == nil then Api.RequestItem(recipe.out) end
+  local bound = ns.Ranking.SellableBind(bind) == false
+  local r = ns.Costing.Evaluate(recipe, {
+    sell = Prices.Sell, mat = Prices.Material, vendor = Prices.Vendor, bound = bound,
+  }, ns.AH_CUT)
+  return r, not (bound and value == 0)
+end
+
 -- Header text and colour. hasAny: at least one listed product has a price.
 -- newestDays: youngest Auctionator age among them (nil if not known).
 function Prices.Status(hasAny, newestDays)

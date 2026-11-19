@@ -11,8 +11,8 @@ local L = {
 
 -- Pure: turn the game's recipe info + schematic into a stored entry.
 -- Returns entry, or nil and a reason ("unlearned", "other", "noItem").
-function Recipes.Build(info, schematic, basicType)
-  if not info or not info.learned then return nil, "unlearned" end
+function Recipes.Build(info, schematic, basicType, includeUnlearned)
+  if not info or (not info.learned and not includeUnlearned) then return nil, "unlearned" end
   if info.isRecraft or info.isSalvageRecipe or info.isGatheringRecipe then return nil, "other" end
   local out = schematic and schematic.outputItemID
   if not out or out == 0 then return nil, "noItem" end
@@ -28,7 +28,11 @@ function Recipes.Build(info, schematic, basicType)
   end
   local qmin = math.max(1, schematic.quantityMin or 1)
   local qmax = math.max(qmin, schematic.quantityMax or qmin)
-  return { id = info.recipeID, name = info.name, out = out, min = qmin, max = qmax, mats = mats }
+  local entry = { id = info.recipeID, name = info.name, out = out, min = qmin, max = qmax, mats = mats }
+  -- For levelling: skill points per craft and the game's own grey threshold.
+  if info.numSkillUps and info.numSkillUps > 1 then entry.points = info.numSkillUps end
+  if info.maxTrivialLevel and info.maxTrivialLevel > 0 then entry.grey = info.maxTrivialLevel end
+  return entry
 end
 
 function Recipes.Index()
@@ -37,16 +41,21 @@ function Recipes.Index()
   local ids = Api.RecipeIDs()
   if not ids or #ids == 0 then return end
 
-  local list, noItem = {}, 0
+  local list, unlearned, noItem = {}, {}, 0
   local basic = Api.ReagentBasicType()
   for _, id in ipairs(ids) do
     local info = Api.RecipeInfo(id)
-    if info and info.learned then
-      local entry, why = Recipes.Build(info, Api.Schematic(id), basic)
+    if info then
+      local entry, why = Recipes.Build(info, Api.Schematic(id), basic, true)
       if entry then
         entry.id = entry.id or id
-        list[#list + 1] = entry
-      elseif why == "noItem" then
+        if info.learned then
+          list[#list + 1] = entry
+        else
+          entry.source = Api.RecipeSource(id)
+          unlearned[#unlearned + 1] = entry
+        end
+      elseif why == "noItem" and info.learned then
         noItem = noItem + 1
       end
     end
@@ -54,7 +63,9 @@ function Recipes.Index()
   if #list == 0 and noItem == 0 then return end -- data not ready yet
 
   local old = ns.char.profs[prof.skillLine]
-  ns.char.profs[prof.skillLine] = { name = prof.name, readAt = Api.Now(), recipes = list, noItem = noItem }
+  ns.char.profs[prof.skillLine] = {
+    name = prof.name, readAt = Api.Now(), recipes = list, unlearned = unlearned, noItem = noItem,
+  }
   if not old or #old.recipes ~= #list then
     print(string.format(L.READ, #list, prof.name))
   end

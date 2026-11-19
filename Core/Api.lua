@@ -33,14 +33,16 @@ end
 ---------------------------------------------------------------------------
 -- Professions
 
--- The character's professions: { { name, skillLine }, ... }
+-- The character's professions: { { name, skillLine, rank, maxRank }, ... }
 function Api.Professions()
   local out = {}
   if not GetProfessions or not GetProfessionInfo then return out end
   for _, index in ipairs(collect(GetProfessions())) do
-    local name, _, _, _, _, _, skillLine = GetProfessionInfo(index)
-    name, skillLine = clean(name), clean(skillLine)
-    if name and skillLine then out[#out + 1] = { name = name, skillLine = skillLine } end
+    local name, _, rank, maxRank, _, _, skillLine = GetProfessionInfo(index)
+    name, skillLine, rank, maxRank = clean(name), clean(skillLine), clean(rank), clean(maxRank)
+    if name and skillLine then
+      out[#out + 1] = { name = name, skillLine = skillLine, rank = rank or 1, maxRank = maxRank }
+    end
   end
   return out
 end
@@ -104,6 +106,32 @@ function Api.OpenRecipe(recipeID)
     return (pcall(T.OpenRecipe, recipeID))
   end
   return false
+end
+
+-- Where an unlearned recipe is learned, as the game words it ("Trainer", "Vendor: ...").
+function Api.RecipeSource(recipeID)
+  local T = C_TradeSkillUI
+  if not (T and T.GetRecipeSourceText) then return nil end
+  local ok, text = pcall(T.GetRecipeSourceText, recipeID)
+  return ok and clean(text) or nil
+end
+
+-- Profession trainer window: { { name, skill, profession, cost } }
+function Api.TrainerServices()
+  local out = {}
+  local n = GetNumTrainerServices and GetNumTrainerServices() or 0
+  for i = 1, n do
+    local name, _, kind = GetTrainerServiceInfo(i)
+    if name and kind ~= "header" then
+      local profession, skill = GetTrainerServiceSkillReq(i)
+      local cost = GetTrainerServiceCost(i)
+      name, profession, skill, cost = clean(name), clean(profession), clean(skill), clean(cost)
+      if name and profession and skill then
+        out[#out + 1] = { name = name, profession = profession, skill = skill, cost = cost or 0 }
+      end
+    end
+  end
+  return out
 end
 
 function Api.ReagentBasicType()

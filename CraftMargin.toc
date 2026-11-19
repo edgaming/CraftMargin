@@ -19,8 +19,13 @@ Domain\Recipes.lua
 Domain\Costing.lua
 Domain\Ranking.lua
 Domain\Shopping.lua
+Domain\ThresholdData.lua
+Domain\Trainer.lua
+Domain\Planner.lua
+Domain\Leveling.lua
 UI\Widgets.lua
 UI\MainWindow.lua
 UI\Settings.lua
 UI\CopyBox.lua
+UI\RouteView.lua
 Commands.lua
