@@ -190,40 +190,6 @@ local function Box(i)
   return box
 end
 
--- A dashed red border marks a recipe you haven't learned yet.
-local DASH, DASH_GAP, DASH_W = 8, 5, 2
-local function Dashes(box, w, h, show)
-  box.dashes = box.dashes or {}
-  local n = 0
-  local function seg(x, y, sw, sh)
-    n = n + 1
-    local t = box.dashes[n]
-    if not t then
-      t = box:CreateTexture(nil, "OVERLAY")
-      t:SetColorTexture(1, 0.3, 0.3, 0.95)
-      box.dashes[n] = t
-    end
-    t:ClearAllPoints()
-    t:SetPoint("TOPLEFT", box, "TOPLEFT", x, -y)
-    t:SetSize(sw, sh)
-    t:Show()
-  end
-  if show then
-    for x = 2, w - 3, DASH + DASH_GAP do
-      local len = math.min(DASH, w - 2 - x)
-      seg(x, 2, len, DASH_W)
-      seg(x, h - 2 - DASH_W, len, DASH_W)
-    end
-    for y = 2 + DASH + DASH_GAP, h - 3 - DASH, DASH + DASH_GAP do
-      local len = math.min(DASH, h - 2 - y)
-      seg(2, y, DASH_W, len)
-      seg(w - 2 - DASH_W, y, DASH_W, len)
-    end
-  end
-  box.dashCount = show and n or 0
-  for i = n + 1, #box.dashes do box.dashes[i]:Hide() end
-end
-
 local function Link(i)
   local t = Route.links[i]
   if t then return t end
@@ -256,7 +222,6 @@ local function DrawBox(box, step, first)
   if step.gap then
     for _, fs in ipairs({ box.name, box.cost, box.skill, box.side }) do fs:SetText("") end
     box.icon:Hide()
-    Dashes(box, BOX_W, GAP_H, false)
     for _, t in ipairs(box.strip) do t:Hide() end
     box.more:Hide()
     box.gapText:SetText(string.format(L.GAP, step.from, step.to))
@@ -323,10 +288,10 @@ local function DrawBox(box, step, first)
     h = BOX_H + n * ALT_H + 2
   end
   box:SetHeight(h)
-  Dashes(box, BOX_W, h, not c.known)
+  box.border = (not c.known and "bad") or (first and "head") or "muted"
   if box.SetBackdropBorderColor then
     if not c.known then
-      box:SetBackdropBorderColor(0, 0, 0, 0) -- the dashes are the border
+      box:SetBackdropBorderColor(1, 0.3, 0.3, 1) -- red: you haven't learned this recipe
     elseif first then
       box:SetBackdropBorderColor(1, 0.82, 0, 1)
     else

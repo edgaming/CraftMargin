@@ -153,13 +153,13 @@ test("a recipe behind reputation you don't have isn't planned", function()
   ok(b[#b]:match("^Silk Headband"))
 end)
 
-test("not-learned recipes stand out: dashed red border and a red Not learned", function()
+test("not-learned recipes stand out: red border and a red Not learned", function()
   local ns = world()
   local first, last = ns.UI.Route.boxes[1]
   for _, bx in ipairs(ns.UI.Route.boxes) do if bx:IsShown() then last = bx end end
-  ok(last.dashCount > 10, "dashed border drawn")
+  eq(last.border, "bad")
   ok(last.side:GetText():find("|c" .. ns.Util.Hex("bad") .. "Not learned|r", 1, true), "red Not learned")
-  eq(first.dashCount, 0)
+  eq(first.border, "head", "current learned step keeps the gold border")
   eq(first.side:GetText(), "Learned")
 end)
 
