@@ -332,21 +332,6 @@ function Item(id, name, bind, vendor, icon) Mock.items[id] = { name = name, bind
 ---------------------------------------------------------------------------
 -- Merchant
 
--- Loot window: list of item IDs
-Mock.loot = {}
-GetNumLootItems = function() return #Mock.loot end
-GetLootSlotLink = function(slot) local id = Mock.loot[slot] return id and ("|Hitem:" .. id .. "::::|h[x]|h") end
-C_Spell = { GetSpellName = function(id) return Mock.spellNames and Mock.spellNames[id] end }
-
--- Gather a node: start the cast on it, then the loot window opens with these items.
-function Gather(node, items, spellID)
-  FireEvent("UNIT_SPELLCAST_SENT", "player", node, "cast-guid", spellID or 2366)
-  Mock.loot = items
-  FireEvent("LOOT_READY")
-  FireEvent("LOOT_OPENED")
-  Mock.loot = {}
-end
-
 -- Trainer window: { { name, profession, skill, cost } }
 Mock.trainer = {}
 GetNumTrainerServices = function() return #Mock.trainer end

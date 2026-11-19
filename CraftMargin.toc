@@ -24,13 +24,9 @@ Domain\RecipeSources.lua
 Domain\Trainer.lua
 Domain\Planner.lua
 Domain\Leveling.lua
-Domain\NodeData.lua
-Domain\Nodes.lua
-Domain\Gathering.lua
 UI\Widgets.lua
 UI\MainWindow.lua
 UI\Settings.lua
 UI\CopyBox.lua
 UI\RouteView.lua
-UI\NodeTooltip.lua
 Commands.lua

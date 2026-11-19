@@ -18,7 +18,6 @@ function ns.InitDB()
   db.window = db.window or {}
   db.vendor = db.vendor or {} -- [faction][itemID] = cheapest copper seen at a vendor
   db.trainer = db.trainer or {} -- [profession][recipe name] = { skill, cost }
-  db.gathered = db.gathered or {} -- [node name] = { n = loots, items = { [itemID] = loots it was in } }
 
   CraftMarginCharDB = CraftMarginCharDB or {}
   local char = CraftMarginCharDB

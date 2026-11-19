@@ -208,35 +208,6 @@ function Api.ItemCount(itemID)
   return clean(count) or 0
 end
 
--- Item ID for a name, if the game has that item cached.
-function Api.ItemIDByName(name)
-  local getInfo = (C_Item and C_Item.GetItemInfo) or GetItemInfo
-  if not (getInfo and type(name) == "string") then return nil end
-  local ok, _, link = pcall(getInfo, name)
-  link = ok and clean(link) or nil
-  return type(link) == "string" and tonumber(link:match("item:(%d+)")) or nil
-end
-
-function Api.SpellName(spellID)
-  if not spellID then return nil end
-  local get = (C_Spell and C_Spell.GetSpellName) or GetSpellInfo
-  if not get then return nil end
-  local ok, name = pcall(get, spellID)
-  return ok and clean(name) or nil
-end
-
--- Item IDs in the open loot window.
-function Api.LootItems()
-  local out = {}
-  local n = GetNumLootItems and GetNumLootItems() or 0
-  for slot = 1, n do
-    local link = clean(GetLootSlotLink and GetLootSlotLink(slot))
-    local id = type(link) == "string" and tonumber(link:match("item:(%d+)"))
-    if id then out[#out + 1] = id end
-  end
-  return out
-end
-
 function Api.RequestItem(itemID)
   if C_Item and C_Item.RequestLoadItemDataByID then
     pcall(C_Item.RequestLoadItemDataByID, itemID)
