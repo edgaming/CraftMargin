@@ -31,7 +31,7 @@ end
 -- Candidate recipes for the planner, plus counts of what was left out and why.
 function Leveling.Candidates(prof, entry)
   local cands = {}
-  local info = { unpriced = 0, noThresholds = 0, untrained = 0, mismatches = {} }
+  local info = { unpriced = 0, noThresholds = 0, untrained = 0, notTrainer = 0, mismatches = {} }
   local function add(recipe, known, req, fee)
     local yellow, grey, mismatch = Leveling.Thresholds(recipe)
     if not yellow then
@@ -52,10 +52,28 @@ function Leveling.Candidates(prof, entry)
   end
   for _, recipe in ipairs(entry.recipes) do add(recipe, true, 0, 0) end
   for _, recipe in ipairs(entry.unlearned or {}) do
-    local t = ns.Trainer.For(prof.name, recipe.name)
-    if t then add(recipe, false, t.skill, t.cost or 0) else info.untrained = info.untrained + 1 end
+    local req, fee = Leveling.TrainerTerms(prof, recipe)
+    if req then
+      add(recipe, false, req, fee)
+    elseif req == false then
+      info.notTrainer = info.notTrainer + 1
+    else
+      info.untrained = info.untrained + 1
+    end
   end
   return cands, info
+end
+
+-- Skill and fee to learn an unlearned recipe from a trainer. A trainer you've visited wins (its
+-- fee includes your reputation discount); otherwise the bundled What's Training data.
+-- Returns skill, fee; false if no trainer teaches it; nil if nothing is known.
+function Leveling.TrainerTerms(prof, recipe)
+  local seen = ns.Trainer.For(prof.name, recipe.name)
+  if seen then return seen.skill, seen.cost or 0 end
+  local data = ns.RecipeSources and ns.RecipeSources[recipe.id]
+  if not data then return nil end
+  if not data[3]:find("t", 1, true) then return false end
+  return data[1], data[2]
 end
 
 function Leveling.Pins(prof)
@@ -91,7 +109,6 @@ function Leveling.Route(prof)
   end
   local cands, info = Leveling.Candidates(prof, entry)
   route.info = info
-  route.trainerVisited = ns.Trainer.Visited(prof.name)
   local plan = ns.Planner.Plan(from, Leveling.MAX_SKILL, cands, Leveling.Pins(prof))
   route.steps, route.total = plan.steps, plan.total
   Leveling.last = route -- for /margin debug

@@ -17,11 +17,12 @@ local function world(opts)
   ns.ThresholdData[9001] = { 120, 150 }
   ns.ThresholdData[9002] = { 140, 180 }
   ns.ThresholdData[9003] = { 200, 300 }
+  ns.RecipeSources[9003] = opts.bundled ~= false and { 160, 1000, "t" } or nil
   SetPrice(2589, 50)
   SetPrice(4305, 300)
   OpenProfession("Tailoring", 197)
-  if opts.trainer ~= false then
-    VisitTrainer({ { name = "Silk Headband", profession = "Tailoring", skill = 160, cost = 1000 } })
+  if opts.trainer then
+    VisitTrainer({ { name = "Silk Headband", profession = "Tailoring", skill = opts.trainer.skill, cost = opts.trainer.cost } })
   end
   Slash()
   Click(ns.UI.Main.modes[2])
@@ -65,15 +66,37 @@ test("the chosen mode is remembered", function()
   eq(ns.UI.Main.scroll:IsShown(), true)
 end)
 
-test("without a trainer visit: a note, and a gap where only the trainer recipe would do", function()
-  local ns = world({ trainer = false })
-  eq(ns.UI.Route.note:GetText(), "Visit your trainer to include recipes you haven't learned.")
+test("trainer recipes are included without visiting a trainer", function()
+  local ns = world()
+  local b = boxes()
+  ok(b[#b]:match("^Silk Headband"), table.concat(b, " | "))
+  eq(ns.UI.Route.note:GetText(), "")
+end)
+
+test("a recipe with no known source leaves a gap", function()
+  world({ bundled = false })
   local b = boxes()
   eq(b[#b], "No priced recipe for 180–300")
-  VisitTrainer({ { name = "Silk Headband", profession = "Tailoring", skill = 160, cost = 1000 } })
-  b = boxes()
-  ok(b[#b]:match("^Silk Headband"), "added after the visit")
-  eq(ns.UI.Route.note:GetText(), "")
+end)
+
+test("a vendor-only recipe isn't planned", function()
+  local ns = world({ bundled = false })
+  ns.RecipeSources[9003] = { 160, 0, "v" }
+  ns.Update()
+  Advance(1)
+  local b = boxes()
+  eq(b[#b], "No priced recipe for 180–300")
+  Mock.printed = {}
+  Slash("debug")
+  ok(Printed("1 not from a trainer"))
+end)
+
+test("a trainer visit overrides the bundled fee and skill", function()
+  local ns = world({ trainer = { skill = 170, cost = 900 } })
+  local last
+  for _, bx in ipairs(ns.UI.Route.boxes) do if bx:IsShown() then last = bx end end
+  eq(Strip(last.side:GetText()), "Learn: trainer · 9s")
+  ok(last.step.from >= 170, "not before the trainer's skill: " .. last.step.from)
 end)
 
 test("an unlearned step says where to learn it and its fee", function()

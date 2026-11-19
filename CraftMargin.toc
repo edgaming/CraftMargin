@@ -20,6 +20,7 @@ Domain\Costing.lua
 Domain\Ranking.lua
 Domain\Shopping.lua
 Domain\ThresholdData.lua
+Domain\RecipeSources.lua
 Domain\Trainer.lua
 Domain\Planner.lua
 Domain\Leveling.lua

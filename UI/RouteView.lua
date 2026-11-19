@@ -9,7 +9,6 @@ local L = {
   TITLE = "%s %d → %d",
   TOTAL = "About %s after selling",
   TOTAL_PROFIT = "Makes about %s",
-  NO_TRAINER = "Visit your trainer to include recipes you haven't learned.",
   RESET = "Reset route",
   MAXED = "%s is maxed.",
   SKILL = "Skill %d → %d · about %d crafts",
@@ -285,7 +284,7 @@ function Route.Refresh(prof)
       Route.total:SetText(string.format(L.TOTAL, Util.Money(route.total)))
       UI.SetColor(Route.total, "text")
     end
-    Route.note:SetText(route.trainerVisited and "" or L.NO_TRAINER)
+    Route.note:SetText("")
     Route.reset:SetShown(#ns.Leveling.Pins(prof) > 0)
     local y = -HEADER_H
     for i, step in ipairs(route.steps) do
