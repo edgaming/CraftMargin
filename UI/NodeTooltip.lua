@@ -11,6 +11,7 @@ local Util = ns.Util
 local L = {
   PRICED = "%s (AH %s)",
   CHANCE_FOR = "Chance for:",
+  CHANCE_SEEN = "Chance for (from your %d gathers):",
   RARE = "    %s %s%%",
   NO_PRICE = "no AH price",
 }
@@ -20,23 +21,23 @@ local function chance(pct)
   return string.format("%.1f", pct)
 end
 
-local function fromMinimap(owner)
-  if not owner then return false end
-  if owner == Minimap then return true end
-  local name = owner.GetName and owner:GetName()
-  return type(name) == "string" and name:find("Minimap", 1, true) ~= nil
-end
 
 local function priced(name, price)
   return string.format(L.PRICED, name, Util.Money(price))
 end
 
-local busy = false
+-- Runs whenever the game tooltip gets text or appears. The minimap's node tooltip (and the one
+-- for a node in the world) may be owned by UIParent, so instead of checking the owner, only
+-- names we know as gathering nodes get prices. Each tooltip is handled once until it's cleared.
+local busy, done = false, nil
 function NodeTooltip.OnSetText(tooltip, text)
-  if busy or Util.IsSecret(text) or not fromMinimap(tooltip:GetOwner()) then return end
+  if busy or type(text) ~= "string" or Util.IsSecret(text) or done == text then return end
   local nodes = ns.Nodes.Parse(text)
   if #nodes == 0 then return end
-  busy = true
+  for _, n in ipairs(nodes) do
+    if not ns.Nodes.Known(n) then return end
+  end
+  busy, done = true, text
   local changed = false
   local muted = Util.RGB.muted
 
@@ -49,9 +50,9 @@ function NodeTooltip.OnSetText(tooltip, text)
       first:SetText(priced(text, price))
       changed = true
     end
-    local rares = ns.Nodes.Rares(nodes[1])
+    local rares, from = ns.Nodes.Rares(nodes[1])
     if #rares > 0 then
-      tooltip:AddLine(L.CHANCE_FOR, muted[1], muted[2], muted[3])
+      tooltip:AddLine(from and string.format(L.CHANCE_SEEN, from) or L.CHANCE_FOR, muted[1], muted[2], muted[3])
       for _, r in ipairs(rares) do
         local line = string.format(L.RARE, r.name, chance(r.chance))
         tooltip:AddLine(r.price and string.format(L.PRICED, line, Util.Money(r.price)) or (line .. " (" .. L.NO_PRICE .. ")"), 1, 1, 1)
@@ -70,8 +71,17 @@ function NodeTooltip.OnSetText(tooltip, text)
   busy = false
 end
 
+function NodeTooltip.OnShow(tooltip)
+  local first = _G[(tooltip:GetName() or "") .. "TextLeft1"]
+  if first then NodeTooltip.OnSetText(tooltip, first:GetText()) end
+end
+
 ns.Listen("READY", function()
-  if GameTooltip and hooksecurefunc then
+  if not GameTooltip then return end
+  if hooksecurefunc then
     hooksecurefunc(GameTooltip, "SetText", function(...) ns.Safe("node tooltip", NodeTooltip.OnSetText, ...) end)
   end
+  GameTooltip:HookScript("OnShow", function(self) ns.Safe("node tooltip", NodeTooltip.OnShow, self) end)
+  GameTooltip:HookScript("OnTooltipCleared", function() done = nil end)
+  GameTooltip:HookScript("OnHide", function() done = nil end)
 end)

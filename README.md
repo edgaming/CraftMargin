@@ -7,7 +7,7 @@ A World of Warcraft addon for WoW Forever that shows which of your recipes make 
 - Shift-click a recipe to shop for its materials: Auctionator searches for you; with TSM you get a search string to paste.
 - Hover a profit to see the math: sale price, yield, 5% AH cut, materials.
 - Level up view: the cheapest route from your skill to 300, step by step, with craft counts, alternatives you can pin, and one-click shopping for each step.
-- Hover a herb or mining node on the minimap to see the AH price of what it gives.
+- Hover a herb or mining node on the minimap (or in the world) to see the AH price of what it gives and its rare drops. Nodes the bundled Classic data doesn't cover learn their drops from your own gathering.
 - It never posts, buys or whispers anything.
 
 ## Install
