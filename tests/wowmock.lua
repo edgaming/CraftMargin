@@ -134,11 +134,20 @@ function Frame:ClearAllPoints() self._points = {} end
 function Frame:GetPoint() local p = self._points[1] or {} return p[1], p[2], p[3], p[4], p[5] end
 
 UIParent = CreateFrame("Frame", "UIParent")
+Minimap = CreateFrame("Frame", "Minimap", UIParent)
+
+function hooksecurefunc(t, name, fn)
+  if type(t) == "string" then t, name, fn = _G, t, name end
+  local orig = t[name]
+  t[name] = function(...) local r = { orig(...) } fn(...) return unpack(r) end
+end
 
 GameTooltip = CreateFrame("GameTooltip", "GameTooltip", UIParent)
 GameTooltip._shown = false
 GameTooltip.lines = {}
 function GameTooltip:SetOwner(owner) self.owner = owner; self.lines = {}; self.recipe = nil; self.item = nil end
+function GameTooltip:GetOwner() return self.owner end
+function GameTooltip:SetText(text) self.lines = { { text } } end
 function GameTooltip:ClearLines() self.lines = {} end
 function GameTooltip:SetRecipeResultItem(recipeID) self.recipe = recipeID end
 function GameTooltip:SetItemByID(itemID) self.item = itemID end
@@ -277,9 +286,15 @@ C_Reputation = {
 
 C_Item = {
   GetItemInfo = function(id)
+    if type(id) == "string" then
+      for itemID, it in pairs(Mock.items) do
+        if it.name == id then id = itemID break end
+      end
+    end
     local it = Mock.items[id]
     if not it then return nil end
-    return it.name, "link", 1, 1, 1, "Trade Goods", "", 20, "", 134400, it.vendor or 0, 7, 0, it.bind or 0
+    local link = "|cffffffff|Hitem:" .. id .. "::::::::|h[" .. it.name .. "]|h|r"
+    return it.name, link, 1, 1, 1, "Trade Goods", "", 20, "", 134400, it.vendor or 0, 7, 0, it.bind or 0
   end,
   GetItemCount = function(id) return Mock.bags[id] or 0 end,
   GetItemIconByID = function(id) local it = Mock.items[id] return it and it.icon end,

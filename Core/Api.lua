@@ -208,6 +208,15 @@ function Api.ItemCount(itemID)
   return clean(count) or 0
 end
 
+-- Item ID for a name, if the game has that item cached.
+function Api.ItemIDByName(name)
+  local getInfo = (C_Item and C_Item.GetItemInfo) or GetItemInfo
+  if not (getInfo and type(name) == "string") then return nil end
+  local ok, _, link = pcall(getInfo, name)
+  link = ok and clean(link) or nil
+  return type(link) == "string" and tonumber(link:match("item:(%d+)")) or nil
+end
+
 function Api.RequestItem(itemID)
   if C_Item and C_Item.RequestLoadItemDataByID then
     pcall(C_Item.RequestLoadItemDataByID, itemID)
