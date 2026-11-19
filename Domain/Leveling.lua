@@ -31,8 +31,12 @@ end
 -- Candidate recipes for the planner, plus counts of what was left out and why.
 function Leveling.Candidates(prof, entry)
   local cands = {}
-  local info = { unpriced = 0, noThresholds = 0, unknown = 0, unobtainable = 0, mismatches = {} }
+  local info = { unpriced = 0, noThresholds = 0, unknown = 0, unobtainable = 0, cooldown = 0, mismatches = {} }
   local function add(recipe, known, req, fee, how)
+    if recipe.cooldown then
+      info.cooldown = info.cooldown + 1
+      return
+    end
     local yellow, grey, mismatch = Leveling.Thresholds(recipe)
     if not yellow then
       info.noThresholds = info.noThresholds + 1
@@ -174,23 +178,28 @@ function Leveling.Route(prof)
 end
 
 local L = {
-  PER_CRAFT = "Per craft",
-  MATS = "  Materials",
-  SELLS = "  Sells for",
-  NET = "  Net cost",
-  CHANCE = "Skill-up chance",
-  CRAFTS = "Crafts",
-  LEARN = "Learn",
+  NOT_LEARNED = "Not learned",
+  GET_IT = "  Get it from",
+  SKILL_NEEDED = "  Needs skill",
+  WHERE = "  Where",
+  QUEST_LEVEL = "  Quest level",
+  FAVOR = "  Also costs",
+  FAVOR_TEXT = "%d Merchant's Favor",
+  EACH = "Each craft",
+  MATS = "  Materials cost",
+  SELLS = "  Result sells for",
+  NOTHING = "nothing",
+  STEP = "This step",
+  CRAFTS = "  Crafts",
+  TOTAL_COSTS = "  Costs",
+  TOTAL_EARNS = "  Earns",
+  INCLUDES = "  Including learning it",
+  ABOUT = "about %d",
   TRAINER = "Trainer · %s",
   VENDOR = "Vendor · %s",
   VENDOR_UNKNOWN = "Vendor · price unknown",
-  AH = "Auction house · %s",
+  AH = "AH pattern · %s",
   QUEST = "Quest reward",
-  SKILL_NEEDED = "  Needs skill",
-  WHERE = "  Where",
-  FAVOR = "  Also costs",
-  FAVOR_TEXT = "%d Merchant's Favor",
-  QUEST_LEVEL = "  Quest level",
   GREEN = "Green: only because nothing yellow or orange fits here",
   PINNED = "Pinned here — reset the route to undo",
 }
@@ -211,26 +220,35 @@ function Leveling.Colors(c, from, to)
   return o, y, g
 end
 
--- Tooltip for a step or an alternative: { { left, right?, kind? } }.
-function Leveling.StepLines(c, from, to, crafts)
+-- Tooltip for a step or an alternative: { { left, right?, kind? } }. total = what the whole range
+-- costs (negative: earns), including learning the recipe.
+function Leveling.StepLines(c, from, to, crafts, total)
   local U = ns.Util
   local r = c.eval
   local lines = {}
   local function add(left, right, kind) lines[#lines + 1] = { left, right, kind } end
-  add(L.PER_CRAFT, nil, "head")
-  add(L.MATS, "-" .. U.Money(r.cost))
-  local value = r.best and r[r.best].revenue or 0
-  add(L.SELLS, "+" .. U.Money(value) .. (r.best and (" " .. U.Color("muted", r.best == "ah" and "AH" or "vendor")) or ""))
-  add(L.NET, U.Money(math.abs(c.net)) .. (c.net < 0 and " profit" or ""), c.net < 0 and "good" or nil)
-  add(L.CHANCE, U.Percent(ns.Planner.Chance(c, from)) .. " to " .. U.Percent(ns.Planner.Chance(c, to - 1)))
-  add(L.CRAFTS, "about " .. Leveling.Crafts(crafts))
   if not c.known then
-    local how = c.how or { kind = "trainer", fee = c.fee }
-    add(L.LEARN, Leveling.SourceText(how), "warn")
+    local how = c.how or { kind = "trainer", fee = c.fee, priceKnown = true }
+    add(L.NOT_LEARNED, nil, "bad")
+    add(L.GET_IT, Leveling.SourceText(how))
     add(L.SKILL_NEEDED, tostring(c.req))
     if how.zones and #how.zones > 0 then add(L.WHERE, table.concat(how.zones, ", ")) end
     if how.level then add(L.QUEST_LEVEL, tostring(how.level)) end
     if how.favor then add(L.FAVOR, string.format(L.FAVOR_TEXT, how.favor)) end
+  end
+  add(L.EACH, nil, "head")
+  add(L.MATS, U.Money(r.cost))
+  local value = r.best and r[r.best].revenue
+  if value then
+    add(L.SELLS, U.Money(value) .. " " .. U.Color("muted", r.best == "ah" and "AH, after cut" or "vendor"))
+  else
+    add(L.SELLS, L.NOTHING)
+  end
+  add(L.STEP, nil, "head")
+  add(L.CRAFTS, string.format(L.ABOUT, Leveling.Crafts(crafts)))
+  if total then
+    if total < 0 then add(L.TOTAL_EARNS, U.Money(-total), "good") else add(L.TOTAL_COSTS, U.Money(total)) end
+    if not c.known and c.fee and c.fee > 0 then add(L.INCLUDES, U.Money(c.fee)) end
   end
   return lines
 end

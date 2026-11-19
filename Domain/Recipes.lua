@@ -49,6 +49,7 @@ function Recipes.Index()
       local entry, why = Recipes.Build(info, Api.Schematic(id), basic, true)
       if entry then
         entry.id = entry.id or id
+        if Api.RecipeHasCooldown(id, entry.name) then entry.cooldown = true end
         if info.learned then
           list[#list + 1] = entry
         else

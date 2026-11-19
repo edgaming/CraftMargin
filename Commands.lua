@@ -47,8 +47,8 @@ function Commands.Debug()
   local route = ns.Leveling.last
   if route and route.info then
     local i = route.info
-    say(string.format("Last route: %d to %d, %d steps; left out: %d unpriced, %d no thresholds, %d you can't get, %d unknown source",
-      route.from, route.to, #route.steps, i.unpriced, i.noThresholds, i.unobtainable, i.unknown))
+    say(string.format("Last route: %d to %d, %d steps; left out: %d unpriced, %d no thresholds, %d you can't get, %d unknown source, %d on a cooldown",
+      route.from, route.to, #route.steps, i.unpriced, i.noThresholds, i.unobtainable, i.unknown, i.cooldown))
     local names = {}
     for _, r in ipairs(i.mismatches) do names[#names + 1] = string.format("%s (%d)", r.name, r.id) end
     if #names > 0 then say("Grey mismatches: " .. table.concat(names, ", ")) end
@@ -61,9 +61,58 @@ function Commands.Debug()
   for _, e in ipairs(ns.errors) do say("  " .. e) end
 end
 
+-- /margin debug <recipe>: every number behind one recipe, to check against Auctionator.
+function Commands.DebugRecipe(query)
+  local U = ns.Util
+  local found
+  for skillLine, entry in pairs(ns.char.profs) do
+    for _, list in ipairs({ entry.recipes, entry.unlearned or {} }) do
+      for _, recipe in ipairs(list) do
+        if not found and (recipe.name or ""):lower():find(query, 1, true) then
+          found = { recipe = recipe, prof = { name = entry.name, skillLine = skillLine }, learned = list == entry.recipes }
+        end
+      end
+    end
+  end
+  if not found then return say("No recipe matching \"" .. query .. "\".") end
+  local recipe = found.recipe
+  local r = ns.Prices.Evaluate(recipe)
+  say(string.format("%s (%d) · %s%s", recipe.name, recipe.id, found.learned and "learned" or "not learned",
+    recipe.cooldown and " · has a cooldown, left out of routes" or ""))
+  for _, m in ipairs(r.mats) do
+    local name = (Api.Item(m.id)) or ("item " .. m.id)
+    if m.unit then
+      say(string.format("  %d x %s at %s (%s) = %s", m.n, name, U.Money(m.unit), m.src, U.Money(m.unit * m.n)))
+    else
+      say(string.format("  %d x %s: no price", m.n, name))
+    end
+  end
+  say("  Materials: " .. U.Money(r.cost) .. (r.matsKnown and "" or " (incomplete)"))
+  local age = ns.Prices.Age(recipe.out)
+  say(string.format("  Makes %s x%s · AH %s%s · vendor pays %s",
+    (Api.Item(recipe.out)) or ("item " .. recipe.out), U.Yield(r.yield):gsub("^.", ""),
+    r.ah and U.Money(r.ah.unit) or "no price", age and (" (" .. U.DaysOld(age) .. ")") or "",
+    r.vendor and U.Money(r.vendor.unit) or "nothing"))
+  if r.ah then
+    say(string.format("  AH: %s - %s cut = %s", U.Money(r.ah.gross), U.Money(r.ah.cut), U.Money(r.ah.revenue)))
+  end
+  if r.vendor then say("  Vendor: " .. U.Money(r.vendor.revenue)) end
+  say("  Best: " .. tostring(r.best or "none") .. (r.profit and (" · profit per craft " .. U.SignedMoney(r.profit)) or ""))
+  local yellow, grey = ns.Leveling.Thresholds(recipe)
+  say(string.format("  Thresholds: yellow %s, green %s, grey %s", tostring(yellow),
+    yellow and tostring(math.floor((yellow + grey) / 2)) or "?", tostring(grey)))
+  if not found.learned then
+    local how, why = ns.Leveling.Acquire(found.prof, recipe)
+    say("  Learn: " .. (how and (ns.Leveling.SourceText(how) .. ", skill " .. how.skill) or why))
+  end
+end
+
 function Commands.Run(msg)
   msg = strtrim(string.lower(msg or ""))
-  if msg == "debug" then
+  local query = msg:match("^debug%s+(.+)$")
+  if query then
+    Commands.DebugRecipe(query)
+  elseif msg == "debug" then
     Commands.Debug()
   else
     ns.UI.Main.Toggle()

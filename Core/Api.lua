@@ -134,6 +134,28 @@ function Api.TrainerServices()
   return out
 end
 
+-- Recipes on a cooldown (transmutes, Mooncloth...) can't be crafted over and over to level.
+-- The recipe's spell tooltip has a "... cooldown" line; the cooldown API covers ones on cooldown now.
+function Api.RecipeHasCooldown(recipeID, name)
+  local T = C_TradeSkillUI
+  if T and T.GetRecipeCooldown then
+    local ok, cd, isDay, _, maxCharges = pcall(T.GetRecipeCooldown, recipeID)
+    if ok and ((clean(cd) or 0) > 0 or isDay == true or (clean(maxCharges) or 0) > 0) then return true end
+  end
+  if C_TooltipInfo and C_TooltipInfo.GetSpellByID then
+    local ok, data = pcall(C_TooltipInfo.GetSpellByID, recipeID)
+    if ok and data and data.lines then
+      for _, line in ipairs(data.lines) do
+        for _, text in ipairs({ line.leftText, line.rightText }) do
+          text = clean(text)
+          if type(text) == "string" and text:lower():find("cooldown", 1, true) then return true end
+        end
+      end
+    end
+  end
+  return type(name) == "string" and name:find("^Transmute") ~= nil
+end
+
 function Api.AreaName(areaID)
   if not (areaID and areaID > 0 and C_Map and C_Map.GetAreaInfo) then return nil end
   local ok, name = pcall(C_Map.GetAreaInfo, areaID)

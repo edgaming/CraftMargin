@@ -49,8 +49,10 @@ test("the Level up view shows the route from your skill to 300", function()
   eq(ns.UI.Route.title:GetText(), "Tailoring 100 to 300")
   local b = boxes()
   eq(b[#b]:match("^Silk Headband") ~= nil, true, "trainer recipe used at the end: " .. table.concat(b, " | "))
-  eq(ns.UI.Route.boxes[1].side:GetText(), "You are here")
-  ok(Strip(ns.UI.Route.total:GetText()):find("^About .+ after selling$"), ns.UI.Route.total:GetText())
+  eq(ns.UI.Route.boxes[1].side:GetText(), "Learned")
+  ok(Strip(ns.UI.Route.boxes[1].skill:GetText()):find("you are here$"), ns.UI.Route.boxes[1].skill:GetText())
+  ok(Strip(ns.UI.Route.total:GetText()):find("^Costs about .+ after selling$"), ns.UI.Route.total:GetText())
+  ok(Strip(ns.UI.Route.boxes[1].cost:GetText()):find("^Costs "), ns.UI.Route.boxes[1].cost:GetText())
   eq(ns.UI.Route.note:GetText(), "")
   eq(ns.UI.Main.hint:GetText(), "Click: open recipe  ·  Shift-click: search this step's materials at the AH")
 end)
@@ -88,9 +90,9 @@ test("a vendor recipe is planned; its price shows once known", function()
   local last
   for _, bx in ipairs(ns.UI.Route.boxes) do if bx:IsShown() then last = bx end end
   eq(last.name:GetText(), "Silk Headband")
-  eq(Strip(last.side:GetText()), "Vendor · price unknown")
+  eq(Strip(last.side:GetText()), "Not learned  ·  Vendor · price unknown")
   VisitVendor({ { id = 8003, price = 2500, available = 1 } })
-  eq(Strip(last.side:GetText()), "Vendor · 25s", "limited-supply pattern recorded")
+  eq(Strip(last.side:GetText()), "Not learned  ·  Vendor · 25s", "limited-supply pattern recorded")
   Enter(last)
   local where
   for _, l in ipairs(GameTooltip.lines) do if l[1] == "  Where" then where = l[2] end end
@@ -117,7 +119,7 @@ test("a tradeable drop is planned from the AH", function()
   Advance(1)
   local last
   for _, bx in ipairs(ns.UI.Route.boxes) do if bx:IsShown() then last = bx end end
-  eq(Strip(last.side:GetText()), "Auction house · 40s")
+  eq(Strip(last.side:GetText()), "Not learned  ·  AH pattern · 40s")
 end)
 
 test("a quest reward is planned with its zone and level", function()
@@ -128,7 +130,7 @@ test("a quest reward is planned with its zone and level", function()
   Advance(1)
   local last
   for _, bx in ipairs(ns.UI.Route.boxes) do if bx:IsShown() then last = bx end end
-  eq(Strip(last.side:GetText()), "Quest reward")
+  eq(Strip(last.side:GetText()), "Not learned  ·  Quest reward")
   Enter(last)
   local got = {}
   for _, l in ipairs(GameTooltip.lines) do got[l[1]] = l[2] end
@@ -151,23 +153,79 @@ test("a recipe behind reputation you don't have isn't planned", function()
   ok(b[#b]:match("^Silk Headband"))
 end)
 
-test("unlearned recipes stand out: yellow name and source, accent bar", function()
+test("not-learned recipes stand out: dashed red border and a red Not learned", function()
   local ns = world()
   local first, last = ns.UI.Route.boxes[1]
   for _, bx in ipairs(ns.UI.Route.boxes) do if bx:IsShown() then last = bx end end
-  eq(ColorOf(last.name), "warn")
-  eq(ColorOf(last.side), "warn")
-  eq(last.accent:IsShown(), true)
-  eq(ColorOf(first.name), "text")
-  eq(first.accent:IsShown(), false)
-  eq(first.side:GetText(), "You are here")
+  ok(last.dashCount > 10, "dashed border drawn")
+  ok(last.side:GetText():find("|c" .. ns.Util.Hex("bad") .. "Not learned|r", 1, true), "red Not learned")
+  eq(first.dashCount, 0)
+  eq(first.side:GetText(), "Learned")
+end)
+
+test("the step tooltip is short and in plain words", function()
+  local ns = world()
+  local last
+  for _, bx in ipairs(ns.UI.Route.boxes) do if bx:IsShown() then last = bx end end
+  Enter(last)
+  local got = {}
+  for _, l in ipairs(GameTooltip.lines) do
+    table.insert(got, Strip(l[1]) .. (l[2] and (" = " .. Strip(l[2])) or ""))
+  end
+  local text = table.concat(got, "\n")
+  ok(text:find("^Silk Headband\nNot learned\n  Get it from = Trainer · 10s\n  Needs skill = 160\nEach craft\n"), text)
+  ok(text:find("  Materials cost = 3s\n  Result sells for = nothing\nThis step\n  Crafts = about %d+\n  Costs = "), text)
+  ok(text:find("  Including learning it = 10s"), text)
+  ok(not text:find("[+]"), "no plus or minus signs on money")
+end)
+
+test("recipes with a cooldown are left out of routes", function()
+  local ns = world()
+  local entry = ns.Recipes.For({ skillLine = 197, name = "Tailoring" })
+  entry.unlearned[1].cooldown = true
+  ns.Update()
+  Advance(1)
+  local b = boxes()
+  eq(b[#b], "No priced recipe from 180 to 300")
+  Mock.printed = {}
+  Slash("debug")
+  ok(Printed("1 on a cooldown"))
+end)
+
+test("transmutes are detected as cooldown recipes when read", function()
+  InstallAuctionator()
+  AddProfession("Alchemy", 171, 1, 280)
+  Item(12360, "Arcanite Bar")
+  AddRecipe(171, { id = 17187, name = "Transmute: Arcanite", out = 12360, mats = {} })
+  AddRecipe(171, { id = 3171, name = "Elixir of Wisdom", out = 3383, mats = {} })
+  local ns = Boot()
+  OpenProfession("Alchemy", 171)
+  local entry = ns.Recipes.For({ skillLine = 171, name = "Alchemy" })
+  local byName = {}
+  for _, r in ipairs(entry.recipes) do byName[r.name] = r end
+  eq(byName["Transmute: Arcanite"].cooldown, true)
+  eq(byName["Elixir of Wisdom"].cooldown, nil)
+end)
+
+test("debug <recipe> prints every number behind it", function()
+  world()
+  Mock.printed = {}
+  Slash("debug linen belt")
+  ok(Printed("Linen Belt (9001) · learned"))
+  ok(Printed("  1 x Linen Cloth at 50c (ah) = 50c"))
+  ok(Printed("  Materials: 50c"))
+  ok(Printed("  Thresholds: yellow 120, green 135, grey 150"))
+  Mock.printed = {}
+  Slash("debug silk")
+  ok(Printed("Silk Headband (9003) · not learned"))
+  ok(Printed("  Learn: Trainer · 10s, skill 160"))
 end)
 
 test("a trainer visit overrides the bundled fee and skill", function()
   local ns = world({ trainer = { skill = 170, cost = 900 } })
   local last
   for _, bx in ipairs(ns.UI.Route.boxes) do if bx:IsShown() then last = bx end end
-  eq(Strip(last.side:GetText()), "Trainer · 9s")
+  eq(Strip(last.side:GetText()), "Not learned  ·  Trainer · 9s")
   ok(last.step.from >= 170, "not before the trainer's skill: " .. last.step.from)
 end)
 
@@ -175,11 +233,11 @@ test("an unlearned step says where to learn it and its fee", function()
   local ns = world()
   local last
   for _, bx in ipairs(ns.UI.Route.boxes) do if bx:IsShown() then last = bx end end
-  eq(Strip(last.side:GetText()), "Trainer · 10s")
+  eq(Strip(last.side:GetText()), "Not learned  ·  Trainer · 10s")
   Enter(last)
   local found = false
   for _, l in ipairs(GameTooltip.lines) do
-    if l[1] == "Learn" then found = Strip(l[2]) == "Trainer · 10s" end
+    if l[1] == "  Get it from" then found = Strip(l[2]) == "Trainer · 10s" end
   end
   ok(found, "tooltip has the trainer line")
 end)
@@ -213,7 +271,7 @@ test("alternatives open, and picking one pins it; reset undoes it", function()
   eq(alt:IsShown(), true)
   local altName = alt.name:GetText()
   ok(altName ~= chosen)
-  ok(Strip(alt.delta:GetText()):match("^%+") or alt.delta:GetText() == "same", alt.delta:GetText())
+  ok(Strip(alt.delta:GetText()):match(" more$") or alt.delta:GetText() == "same", alt.delta:GetText())
   local from, to = first.step.from, first.step.to
   Click(alt)
   Advance(1)

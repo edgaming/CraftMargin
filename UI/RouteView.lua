@@ -7,21 +7,25 @@ local UI, Util, Api = ns.UI, ns.Util, ns.Api
 
 local L = {
   TITLE = "%s %d to %d",
-  TOTAL = "About %s after selling",
-  TOTAL_PROFIT = "Makes about %s",
+  TOTAL = "Costs about %s after selling",
+  TOTAL_PROFIT = "Earns about %s after selling",
+  COSTS = "Costs %s",
+  EARNS = "Earns %s",
+  LEARNED = "Learned",
+  NOT_LEARNED = "Not learned",
+  YOU_ARE_HERE = "you are here",
   RESET = "Reset route",
   MAXED = "%s is maxed.",
   SKILL = "Skill %d to %d · about %d crafts",
-  HERE = "You are here",
-  KNOWN = "Known",
   PINNED = "pinned",
   ALTS = "%d other recipes for this range",
   ALT = "1 other recipe for this range",
   HIDE = "Hide other recipes",
   USE = "Use this",
   ALT_ROW = "×%d",
-  MORE = "+%s",
-  LESS = "-%s",
+  MORE = "%s more",
+  LESS = "%s less",
+  ALT_NOT_LEARNED = "not learned",
   SAME = "same",
   GAP = "No priced recipe from %d to %d",
   USE_THIS = "Click to use this recipe here",
@@ -96,7 +100,7 @@ local function AltRow(box, i)
   row:SetScript("OnEnter", function(self)
     local a, step = self.alt, self.step
     if not a then return end
-    local lines = ns.Leveling.StepLines(a.cand, step.from, step.to, a.crafts)
+    local lines = ns.Leveling.StepLines(a.cand, step.from, step.to, a.crafts, a.cost)
     lines[#lines + 1] = { L.USE_THIS, nil, "muted" }
     UI.Tooltip(self, a.cand.name, lines)
   end)
@@ -118,13 +122,6 @@ local function Box(i)
   box:SetWidth(BOX_W)
   box:RegisterForClicks("LeftButtonUp")
   box:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
-
-  -- A yellow bar down the left edge marks a recipe you haven't learned yet.
-  box.accent = box:CreateTexture(nil, "ARTWORK")
-  box.accent:SetColorTexture(1, 0.82, 0, 0.9)
-  box.accent:SetWidth(3)
-  box.accent:SetPoint("TOPLEFT", 4, -4)
-  box.accent:SetPoint("BOTTOMLEFT", 4, 4)
 
   box.icon = box:CreateTexture(nil, "ARTWORK")
   box.icon:SetSize(32, 32)
@@ -182,7 +179,7 @@ local function Box(i)
   box:SetScript("OnEnter", function(self)
     local step = self.step
     if not step or step.gap then return end
-    local lines = ns.Leveling.StepLines(step.cand, step.from, step.to, step.crafts)
+    local lines = ns.Leveling.StepLines(step.cand, step.from, step.to, step.crafts, step.cost)
     if step.green then lines[#lines + 1] = { ns.Leveling.GREEN_TEXT, nil, "muted" } end
     if step.pinned then lines[#lines + 1] = { ns.Leveling.PINNED_TEXT, nil, "muted" } end
     UI.Tooltip(self, step.cand.name, lines)
@@ -191,6 +188,40 @@ local function Box(i)
 
   Route.boxes[i] = box
   return box
+end
+
+-- A dashed red border marks a recipe you haven't learned yet.
+local DASH, DASH_GAP, DASH_W = 8, 5, 2
+local function Dashes(box, w, h, show)
+  box.dashes = box.dashes or {}
+  local n = 0
+  local function seg(x, y, sw, sh)
+    n = n + 1
+    local t = box.dashes[n]
+    if not t then
+      t = box:CreateTexture(nil, "OVERLAY")
+      t:SetColorTexture(1, 0.3, 0.3, 0.95)
+      box.dashes[n] = t
+    end
+    t:ClearAllPoints()
+    t:SetPoint("TOPLEFT", box, "TOPLEFT", x, -y)
+    t:SetSize(sw, sh)
+    t:Show()
+  end
+  if show then
+    for x = 2, w - 3, DASH + DASH_GAP do
+      local len = math.min(DASH, w - 2 - x)
+      seg(x, 2, len, DASH_W)
+      seg(x, h - 2 - DASH_W, len, DASH_W)
+    end
+    for y = 2 + DASH + DASH_GAP, h - 3 - DASH, DASH + DASH_GAP do
+      local len = math.min(DASH, h - 2 - y)
+      seg(2, y, DASH_W, len)
+      seg(w - 2 - DASH_W, y, DASH_W, len)
+    end
+  end
+  box.dashCount = show and n or 0
+  for i = n + 1, #box.dashes do box.dashes[i]:Hide() end
 end
 
 local function Link(i)
@@ -225,7 +256,7 @@ local function DrawBox(box, step, first)
   if step.gap then
     for _, fs in ipairs({ box.name, box.cost, box.skill, box.side }) do fs:SetText("") end
     box.icon:Hide()
-    box.accent:Hide()
+    Dashes(box, BOX_W, GAP_H, false)
     for _, t in ipairs(box.strip) do t:Hide() end
     box.more:Hide()
     box.gapText:SetText(string.format(L.GAP, step.from, step.to))
@@ -236,21 +267,27 @@ local function DrawBox(box, step, first)
   end
   local c = step.cand
   box.gapText:Hide()
-  box.accent:SetShown(not c.known)
   box.icon:SetTexture(Api.ItemIcon(c.out))
   box.icon:Show()
   box.name:SetText(c.name)
-  UI.SetColor(box.name, c.known and "text" or "warn")
-  box.cost:SetText(step.cost < 0 and ("+" .. Util.Money(-step.cost)) or Util.Money(step.cost))
-  UI.SetColor(box.cost, step.cost < 0 and "good" or "text")
-  box.skill:SetText(string.format(L.SKILL, step.from, step.to, ns.Leveling.Crafts(step.crafts))
-    .. (step.pinned and (" · " .. L.PINNED) or ""))
-  if not c.known then
-    box.side:SetText(ns.Leveling.SourceText(c.how or { kind = "trainer", fee = c.fee, priceKnown = true }))
-    UI.SetColor(box.side, "warn")
+  UI.SetColor(box.name, "text")
+  if step.cost < 0 then
+    box.cost:SetText(string.format(L.EARNS, Util.Money(-step.cost)))
+    UI.SetColor(box.cost, "good")
   else
-    box.side:SetText(first and L.HERE or L.KNOWN)
-    UI.SetColor(box.side, first and "head" or "muted")
+    box.cost:SetText(string.format(L.COSTS, Util.Money(step.cost)))
+    UI.SetColor(box.cost, "text")
+  end
+  box.skill:SetText(string.format(L.SKILL, step.from, step.to, ns.Leveling.Crafts(step.crafts))
+    .. (step.pinned and (" · " .. L.PINNED) or "")
+    .. (first and (" · " .. Util.Color("head", L.YOU_ARE_HERE)) or ""))
+  if not c.known then
+    local how = c.how or { kind = "trainer", fee = c.fee, priceKnown = true }
+    box.side:SetText(Util.Color("bad", L.NOT_LEARNED) .. "  ·  " .. ns.Leveling.SourceText(how))
+    UI.SetColor(box.side, "text")
+  else
+    box.side:SetText(L.LEARNED)
+    UI.SetColor(box.side, "muted")
   end
   DrawStrip(box, step)
 
@@ -265,8 +302,8 @@ local function DrawBox(box, step, first)
       local row = AltRow(box, k)
       row.alt, row.step = a, step
       row.icon:SetTexture(Api.ItemIcon(a.cand.out))
-      row.name:SetText(a.cand.name)
-      UI.SetColor(row.name, a.cand.known and "text" or "warn")
+      row.name:SetText(a.cand.name .. (a.cand.known and "" or ("  " .. Util.Color("bad", L.ALT_NOT_LEARNED))))
+      UI.SetColor(row.name, "text")
       row.crafts:SetText(string.format(L.ALT_ROW, ns.Leveling.Crafts(a.crafts)))
       local d = math.floor(a.delta + 0.5)
       if d > 0 then
@@ -286,8 +323,15 @@ local function DrawBox(box, step, first)
     h = BOX_H + n * ALT_H + 2
   end
   box:SetHeight(h)
+  Dashes(box, BOX_W, h, not c.known)
   if box.SetBackdropBorderColor then
-    if first then box:SetBackdropBorderColor(1, 0.82, 0, 1) else box:SetBackdropBorderColor(0.5, 0.5, 0.5, 0.8) end
+    if not c.known then
+      box:SetBackdropBorderColor(0, 0, 0, 0) -- the dashes are the border
+    elseif first then
+      box:SetBackdropBorderColor(1, 0.82, 0, 1)
+    else
+      box:SetBackdropBorderColor(0.5, 0.5, 0.5, 0.8)
+    end
   end
   return h
 end
