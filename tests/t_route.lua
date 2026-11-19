@@ -174,7 +174,8 @@ test("the step tooltip is short and in plain words", function()
   end
   local text = table.concat(got, "\n")
   ok(text:find("^Silk Headband\nNot learned\n  Get it from = Trainer · 10s\n  Needs skill = 160\nEach craft\n"), text)
-  ok(text:find("  Materials cost = 3s\n  Result sells for = nothing\nThis step\n  Crafts = about %d+\n  Costs = "), text)
+  ok(text:find("  %[134400%] 1 Bolt of Silk Cloth = 3s\n  Result sells for = nothing\nTo buy for about %d+ crafts\n  %[134400%] %d+ Bolt of Silk Cloth = "), text)
+  ok(text:find("\nThis step\n  Costs = "), text)
   ok(text:find("  Including learning it = 10s"), text)
   ok(not text:find("[+]"), "no plus or minus signs on money")
 end)
@@ -320,4 +321,38 @@ test("unread profession in Level up says how to read it", function()
   Advance(1)
   eq(Window().empty, "Open your Tailoring window once to read your recipes.")
   eq(ns.UI.Route.scroll:IsShown(), false)
+end)
+
+test("what to buy for a step takes off what's in your bags", function()
+  local ns = world()
+  local first = ns.UI.Route.boxes[1]
+  local n = ns.Leveling.Crafts(first.step.crafts)
+  local per = first.step.cand.id == 9001 and 1 or 2
+  Mock.bags[2589] = 5
+  Enter(first)
+  local found
+  for _, l in ipairs(GameTooltip.lines) do
+    if Strip(l[1]):find("Linen Cloth %(have 5%)") then found = Strip(l[1]) end
+  end
+  eq(found, "  [134400] " .. (n * per - 5) .. " Linen Cloth (have 5)")
+  OpenAuctionHouse()
+  ShiftClick(first)
+  eq(LastSearch(), "advanced: Linen Cloth x" .. (n * per - 5), "the search buys only the shortfall")
+end)
+
+test("enough in your bags: the tooltip says so and shopping says there's nothing to buy", function()
+  local ns = world()
+  local first = ns.UI.Route.boxes[1]
+  Mock.bags[2589] = 10000
+  Enter(first)
+  local enough = false
+  for _, l in ipairs(GameTooltip.lines) do
+    if l[2] == "have enough" then enough = true end
+  end
+  ok(enough)
+  OpenAuctionHouse()
+  Mock.printed = {}
+  ShiftClick(first)
+  eq(#Mock.auc.searches, 0)
+  ok(Printed("you already have everything for"))
 end)

@@ -9,6 +9,7 @@ local Api = ns.Api
 local L = {
   QUEUED = "Craft Margin: open the auction house to search for %s materials.",
   NO_MATS = "Craft Margin: %s has no materials to search for.",
+  HAVE_ALL = "Craft Margin: you already have everything for %s.",
   CANT_SEARCH = "Craft Margin: this Auctionator version can't search for other addons.",
   NEEDS_ADDON = "Craft Margin: AH search needs Auctionator or TSM.",
 }
@@ -19,17 +20,30 @@ local NAME_RETRIES = 6
 local ahOpen = false
 local pending -- { recipe = name, terms = {...}, at = time }
 
--- Pure: Auctionator search terms for `crafts` crafts (default 1), every material included.
--- Returns terms, or nil plus the item IDs whose names aren't loaded yet.
-function Shopping.Terms(r, nameOf, crafts)
-  crafts = crafts or 1
-  local terms, unloaded = {}, {}
+-- Pure: what to buy for `crafts` crafts, after what's already in your bags.
+-- { { id, need, have, buy, unit, src } } in recipe order. haveOf(itemID) -> count (default 0).
+function Shopping.ToBuy(r, crafts, haveOf)
+  local out = {}
   for _, m in ipairs(r.mats) do
-    local name = nameOf(m.id)
-    if name then
-      terms[#terms + 1] = { searchString = name, isExact = true, quantity = m.n * crafts }
-    else
-      unloaded[#unloaded + 1] = m.id
+    local need = m.n * (crafts or 1)
+    local have = haveOf and haveOf(m.id) or 0
+    out[#out + 1] = { id = m.id, need = need, have = have, buy = math.max(0, need - have), unit = m.unit, src = m.src }
+  end
+  return out
+end
+
+-- Pure: Auctionator search terms for what to buy (every material you're short of).
+-- Returns terms, or nil plus the item IDs whose names aren't loaded yet.
+function Shopping.Terms(r, nameOf, crafts, haveOf)
+  local terms, unloaded = {}, {}
+  for _, m in ipairs(Shopping.ToBuy(r, crafts, haveOf)) do
+    if m.buy > 0 then
+      local name = nameOf(m.id)
+      if name then
+        terms[#terms + 1] = { searchString = name, isExact = true, quantity = m.buy }
+      else
+        unloaded[#unloaded + 1] = m.id
+      end
     end
   end
   if #unloaded > 0 then return nil, unloaded end
@@ -37,10 +51,11 @@ function Shopping.Terms(r, nameOf, crafts)
 end
 
 -- Pure: TSM search string for `crafts` crafts (default 1), e.g. "i:2996/x3;i:2320/x3".
-function Shopping.TSMString(r, crafts)
-  crafts = crafts or 1
+function Shopping.TSMString(r, crafts, haveOf)
   local parts = {}
-  for _, m in ipairs(r.mats) do parts[#parts + 1] = string.format("i:%d/x%d", m.id, m.n * crafts) end
+  for _, m in ipairs(Shopping.ToBuy(r, crafts, haveOf)) do
+    if m.buy > 0 then parts[#parts + 1] = string.format("i:%d/x%d", m.id, m.buy) end
+  end
   return table.concat(parts, ";")
 end
 
@@ -61,12 +76,17 @@ function Shopping.Request(r, crafts, attempt)
   local source = ns.Prices.Source()
   if not source then return print(L.NEEDS_ADDON) end
   if #r.mats == 0 then return print(string.format(L.NO_MATS, name)) end
+  local short = false
+  for _, m in ipairs(Shopping.ToBuy(r, crafts, Api.ItemCount)) do
+    if m.buy > 0 then short = true end
+  end
+  if not short then return print(string.format(L.HAVE_ALL, name)) end
   if source.key == "tsm" then
     -- TSM can't be told to search, so hand the player a search string to paste.
-    ns.Emit("TSM_SEARCH", name, Shopping.TSMString(r, crafts))
+    ns.Emit("TSM_SEARCH", name, Shopping.TSMString(r, crafts, Api.ItemCount))
     return
   end
-  local terms, unloaded = Shopping.Terms(r, function(id) return (Api.Item(id)) end, crafts)
+  local terms, unloaded = Shopping.Terms(r, function(id) return (Api.Item(id)) end, crafts, Api.ItemCount)
   if not terms then
     attempt = attempt or 1
     if attempt > NAME_RETRIES then return end

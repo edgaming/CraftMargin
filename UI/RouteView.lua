@@ -36,6 +36,11 @@ local MORE_Y = -54 -- the "other recipes" bar
 local COLORS = { { 1, 0.5, 0.25 }, { 1, 0.9, 0.1 }, { 0.3, 0.8, 0.3 } }
 
 Route.boxes, Route.links = {}, {}
+Route.itemInfo = {
+  name = function(id) return (Api.Item(id)) or ("item " .. id) end,
+  icon = Api.ItemIcon,
+  have = Api.ItemCount,
+}
 Route.expanded = {} -- [step.from] = true
 
 local function backdrop(f)
@@ -100,7 +105,7 @@ local function AltRow(box, i)
   row:SetScript("OnEnter", function(self)
     local a, step = self.alt, self.step
     if not a then return end
-    local lines = ns.Leveling.StepLines(a.cand, step.from, step.to, a.crafts, a.cost)
+    local lines = ns.Leveling.StepLines(a.cand, step.from, step.to, a.crafts, a.cost, Route.itemInfo)
     lines[#lines + 1] = { L.USE_THIS, nil, "muted" }
     UI.Tooltip(self, a.cand.name, lines)
   end)
@@ -179,7 +184,7 @@ local function Box(i)
   box:SetScript("OnEnter", function(self)
     local step = self.step
     if not step or step.gap then return end
-    local lines = ns.Leveling.StepLines(step.cand, step.from, step.to, step.crafts, step.cost)
+    local lines = ns.Leveling.StepLines(step.cand, step.from, step.to, step.crafts, step.cost, Route.itemInfo)
     if step.green then lines[#lines + 1] = { ns.Leveling.GREEN_TEXT, nil, "muted" } end
     if step.pinned then lines[#lines + 1] = { ns.Leveling.PINNED_TEXT, nil, "muted" } end
     UI.Tooltip(self, step.cand.name, lines)

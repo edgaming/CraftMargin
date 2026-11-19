@@ -186,7 +186,12 @@ local L = {
   FAVOR = "  Also costs",
   FAVOR_TEXT = "%d Merchant's Favor",
   EACH = "Each craft",
-  MATS = "  Materials cost",
+  MAT = "  |T%s:16:16:0:0:64:64:5:59:5:59|t %d %s",
+  BUY_FOR = "To buy for about %d crafts",
+  BUY = "  |T%s:16:16:0:0:64:64:5:59:5:59|t %d %s",
+  HAVE = " (have %d)",
+  HAVE_ENOUGH = "have enough",
+  NO_PRICE = "no price",
   SELLS = "  Result sells for",
   NOTHING = "nothing",
   STEP = "This step",
@@ -222,7 +227,7 @@ end
 
 -- Tooltip for a step or an alternative: { { left, right?, kind? } }. total = what the whole range
 -- costs (negative: earns), including learning the recipe.
-function Leveling.StepLines(c, from, to, crafts, total)
+function Leveling.StepLines(c, from, to, crafts, total, item)
   local U = ns.Util
   local r = c.eval
   local lines = {}
@@ -236,16 +241,31 @@ function Leveling.StepLines(c, from, to, crafts, total)
     if how.level then add(L.QUEST_LEVEL, tostring(how.level)) end
     if how.favor then add(L.FAVOR, string.format(L.FAVOR_TEXT, how.favor)) end
   end
+  item = item or { name = function(id) return "item " .. id end, icon = function() return 134400 end,
+    have = function() return 0 end }
   add(L.EACH, nil, "head")
-  add(L.MATS, U.Money(r.cost))
+  for _, m in ipairs(r.mats) do
+    add(string.format(L.MAT, tostring(item.icon(m.id)), m.n, item.name(m.id)),
+      m.unit and U.Money(m.unit * m.n) or L.NO_PRICE, not m.unit and "bad" or nil)
+  end
   local value = r.best and r[r.best].revenue
   if value then
     add(L.SELLS, U.Money(value) .. " " .. U.Color("muted", r.best == "ah" and "AH, after cut" or "vendor"))
   else
     add(L.SELLS, L.NOTHING)
   end
+  local n = Leveling.Crafts(crafts)
+  add(string.format(L.BUY_FOR, n), nil, "head")
+  for _, m in ipairs(ns.Shopping.ToBuy(r, n, item.have)) do
+    local have = m.have > 0 and U.Color("muted", string.format(L.HAVE, m.have)) or ""
+    if m.buy == 0 then
+      add(string.format(L.BUY, tostring(item.icon(m.id)), m.need, item.name(m.id)) .. have, L.HAVE_ENOUGH, "good")
+    else
+      add(string.format(L.BUY, tostring(item.icon(m.id)), m.buy, item.name(m.id)) .. have,
+        m.unit and U.Money(m.unit * m.buy) or L.NO_PRICE, not m.unit and "bad" or nil)
+    end
+  end
   add(L.STEP, nil, "head")
-  add(L.CRAFTS, string.format(L.ABOUT, Leveling.Crafts(crafts)))
   if total then
     if total < 0 then add(L.TOTAL_EARNS, U.Money(-total), "good") else add(L.TOTAL_COSTS, U.Money(total)) end
     if not c.known and c.fee and c.fee > 0 then add(L.INCLUDES, U.Money(c.fee)) end
