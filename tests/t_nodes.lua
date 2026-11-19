@@ -149,3 +149,30 @@ test("a gathering spell recognised by name on this client", function()
   Gather("Stranglekelp", { 3820 }, 265819)
   eq(ns.db.gathered["Stranglekelp"].n, 1)
 end)
+
+test("a tooltip filled without SetText or OnShow still gets prices, once", function()
+  world()
+  SetPrice(2453, 146)
+  Item(2453, "Bruiseweed")
+  GameTooltip:SetOwner(UIParent)
+  GameTooltip._shown = true
+  GameTooltip.lines = { { "Bruiseweed" } } -- set straight on the font string, no hooks fire
+  Frames(0.3)
+  eq(Strip(GameTooltip.lines[1][1]), "Bruiseweed (AH 1s 46c)")
+  Frames(1)
+  eq(#GameTooltip.lines, 1, "nothing added twice")
+end)
+
+test("the poll leaves a node tooltip that already has more lines alone", function()
+  world()
+  SetPrice(1210, 2500)
+  Item(1210, "Shadowgem")
+  GameTooltip:SetOwner(UIParent)
+  GameTooltip._shown = true
+  GameTooltip.lines = { { "Copper Vein" } }
+  Frames(0.3)
+  local n = #GameTooltip.lines
+  ok(n > 1, "rares added")
+  Frames(1)
+  eq(#GameTooltip.lines, n, "not added again")
+end)

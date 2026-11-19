@@ -80,7 +80,13 @@ function Frame:CreateFontString() return CreateFrame("FontString", nil, self) en
 function Frame:CreateTexture() return CreateFrame("Texture", nil, self) end
 function Frame:GetName() return rawget(self, "_name") end
 function Frame:GetParent() return rawget(self, "_parent") end
-function Frame:SetScript(name, fn) self._scripts[name] = fn end
+function Frame:SetScript(name, fn)
+  self._scripts[name] = fn
+  if name == "OnUpdate" and fn then
+    Mock.updaters = Mock.updaters or {}
+    table.insert(Mock.updaters, self)
+  end
+end
 function Frame:GetScript(name) return self._scripts[name] end
 function Frame:HookScript(name, fn)
   local old = self._scripts[name]
@@ -160,6 +166,14 @@ end
 GameTooltipTextLeft1 = CreateFrame("FontString", nil, GameTooltip)
 function GameTooltipTextLeft1:SetText(t) GameTooltip.lines[1] = { t } end
 function GameTooltipTextLeft1:GetText() return GameTooltip.lines[1] and GameTooltip.lines[1][1] end
+function GameTooltip:NumLines() return #self.lines end
+
+-- Run every frame's OnUpdate scripts for `seconds` (in 0.05s frames).
+function Frames(seconds)
+  for _ = 1, math.floor(seconds / 0.05 + 0.5) do
+    for _, f in ipairs(Mock.updaters or {}) do f._scripts.OnUpdate(f, 0.05) end
+  end
+end
 function GameTooltip:ClearLines() self.lines = {} end
 function GameTooltip:SetRecipeResultItem(recipeID) self.recipe = recipeID end
 function GameTooltip:SetItemByID(itemID) self.item = itemID end

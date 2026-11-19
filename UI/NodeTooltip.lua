@@ -30,8 +30,8 @@ end
 -- for a node in the world) may be owned by UIParent, so instead of checking the owner, only
 -- names we know as gathering nodes get prices. Each tooltip is handled once until it's cleared.
 local busy, done = false, nil
-function NodeTooltip.OnSetText(tooltip, text)
-  if busy or type(text) ~= "string" or Util.IsSecret(text) or done == text then return end
+function NodeTooltip.OnSetText(tooltip, text, force)
+  if busy or type(text) ~= "string" or Util.IsSecret(text) or (done == text and not force) then return end
   local nodes = ns.Nodes.Parse(text)
   if #nodes == 0 then return end
   for _, n in ipairs(nodes) do
@@ -76,6 +76,19 @@ function NodeTooltip.OnShow(tooltip)
   if first then NodeTooltip.OnSetText(tooltip, first:GetText()) end
 end
 
+-- Some UIs fill the tooltip without SetText or a fresh show. While it's on screen, look at it a
+-- few times a second: a tooltip holding just a node's name (one line) gets its prices.
+NodeTooltip.POLL = 0.15
+local elapsed = 0
+function NodeTooltip.Poll(tooltip, dt)
+  elapsed = elapsed + (dt or 0)
+  if elapsed < NodeTooltip.POLL then return end
+  elapsed = 0
+  if not tooltip:IsShown() or tooltip:NumLines() ~= 1 then return end
+  local first = _G[(tooltip:GetName() or "") .. "TextLeft1"]
+  if first then NodeTooltip.OnSetText(tooltip, first:GetText(), true) end
+end
+
 ns.Listen("READY", function()
   if not GameTooltip then return end
   if hooksecurefunc then
@@ -84,4 +97,6 @@ ns.Listen("READY", function()
   GameTooltip:HookScript("OnShow", function(self) ns.Safe("node tooltip", NodeTooltip.OnShow, self) end)
   GameTooltip:HookScript("OnTooltipCleared", function() done = nil end)
   GameTooltip:HookScript("OnHide", function() done = nil end)
+  local poller = CreateFrame("Frame")
+  poller:SetScript("OnUpdate", function(_, dt) ns.Safe("node tooltip", NodeTooltip.Poll, GameTooltip, dt) end)
 end)
