@@ -19,22 +19,36 @@ local function hover(text, owner)
   GameTooltip:SetText(text)
   local out = {}
   for _, l in ipairs(GameTooltip.lines) do
-    table.insert(out, Strip(l[1]) .. (l[2] and (" = " .. Strip(l[2])) or ""))
+    table.insert(out, (Strip(l[1]):gsub("^%s+", "")) .. (l[2] and (" = " .. Strip(l[2])) or ""))
   end
   return table.concat(out, " | ")
 end
 
-test("a herb on the minimap gets its AH price", function()
+test("a herb on the minimap gets its AH price on the name line", function()
   world()
-  eq(hover("Stranglekelp"), "Stranglekelp | AH price = 1g 20s")
+  eq(hover("Stranglekelp"), "Stranglekelp (AH 1g 20s)")
 end)
 
 test("a mining node shows the price of the ore it gives", function()
   world()
-  eq(hover("Copper Vein"), "Copper Vein | AH price = 15s 50c")
+  eq(hover("Copper Vein"), "Copper Vein (AH 15s 50c) | Chance for: | Malachite 1% (no AH price) | Shadowgem 1% (no AH price) | Tigerseye 1% (no AH price)")
 end)
 
-test("several nodes under the cursor: one price line each, by item name", function()
+test("rare drops list each one with its chance and AH price, likeliest then dearest first", function()
+  world()
+  SetPrice(774, 300)
+  SetPrice(1210, 2500)
+  eq(hover("Copper Vein"), "Copper Vein (AH 15s 50c) | Chance for: | Shadowgem 1% (AH 25s) | Malachite 1% (AH 3s) | Tigerseye 1% (no AH price)")
+end)
+
+test("fractional chances keep one decimal", function()
+  local ns = world()
+  ns.NodeData["Test Vein"] = { 2770, rare = { { 1210, 0.8 } } }
+  SetPrice(1210, 2500)
+  eq(hover("Test Vein"), "Test Vein (AH 15s 50c) | Chance for: | Shadowgem 0.8% (AH 25s)")
+end)
+
+test("several nodes under the cursor: one price line per item, no rares", function()
   world()
   eq(hover("|cffffffffStranglekelp|r\nCopper Vein"), "Stranglekelp\nCopper Vein | Stranglekelp = 1g 20s | Copper Ore = 15s 50c")
 end)
@@ -47,10 +61,10 @@ test("no price: nothing added; other tooltips are left alone", function()
 end)
 
 test("a node missing from the table falls back to an item of the same name", function()
-  local ns = world()
+  world()
   Item(250001, "Moonpetal")
   SetPrice(250001, 900)
-  eq(hover("Moonpetal"), "Moonpetal | AH price = 9s")
+  eq(hover("Moonpetal"), "Moonpetal (AH 9s)")
 end)
 
 test("parse strips colour codes and icons", function()
@@ -59,25 +73,4 @@ test("parse strips colour codes and icons", function()
   eq(#names, 2)
   eq(names[1], "Stranglekelp")
   eq(names[2], "Copper Vein")
-end)
-
-test("a node's most valuable rare drop, with its chance and price", function()
-  world()
-  SetPrice(774, 300)
-  SetPrice(1210, 2500)
-  eq(hover("Copper Vein"), "Copper Vein | AH price = 15s 50c | Rare: Shadowgem (1%) = 25s")
-end)
-
-test("no priced rare drop: no rare line; several nodes: no rare line", function()
-  world()
-  eq(hover("Copper Vein"), "Copper Vein | AH price = 15s 50c")
-  SetPrice(1210, 2500)
-  eq(hover("Stranglekelp\nCopper Vein"), "Stranglekelp\nCopper Vein | Stranglekelp = 1g 20s | Copper Ore = 15s 50c")
-end)
-
-test("fractional chances keep one decimal", function()
-  local ns = world()
-  ns.NodeData["Test Vein"] = { 2770, rare = { { 1210, 0.8 } } }
-  SetPrice(1210, 2500)
-  eq(hover("Test Vein"), "Test Vein | AH price = 15s 50c | Rare: Shadowgem (0.8%) = 25s")
 end)

@@ -148,6 +148,8 @@ GameTooltip.lines = {}
 function GameTooltip:SetOwner(owner) self.owner = owner; self.lines = {}; self.recipe = nil; self.item = nil end
 function GameTooltip:GetOwner() return self.owner end
 function GameTooltip:SetText(text) self.lines = { { text } } end
+GameTooltipTextLeft1 = CreateFrame("FontString", nil, GameTooltip)
+function GameTooltipTextLeft1:SetText(t) GameTooltip.lines[1] = { t } end
 function GameTooltip:ClearLines() self.lines = {} end
 function GameTooltip:SetRecipeResultItem(recipeID) self.recipe = recipeID end
 function GameTooltip:SetItemByID(itemID) self.item = itemID end

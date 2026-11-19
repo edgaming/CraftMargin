@@ -25,18 +25,20 @@ function Nodes.Item(name)
   return Api.ItemIDByName(name)
 end
 
--- The most valuable rare drop from a node that has an AH price: { name, chance (%), price }.
-function Nodes.Rare(name)
+-- A node's rare drops, likeliest first: { { id, name, chance (%), price or nil } }.
+function Nodes.Rares(name)
   local data = ns.NodeData and ns.NodeData[name]
-  local best
+  local out = {}
   for _, r in ipairs((data and data.rare) or {}) do
-    local price = ns.Prices.Sell(r[1])
-    if price and (not best or price > best.price) then
-      best = { id = r[1], chance = r[2], price = price }
-    end
+    out[#out + 1] = { id = r[1], chance = r[2], price = ns.Prices.Sell(r[1]),
+      name = (Api.Item(r[1])) or ("item " .. r[1]) }
   end
-  if best then best.name = (Api.Item(best.id)) or ("item " .. best.id) end
-  return best
+  table.sort(out, function(a, b)
+    if a.chance ~= b.chance then return a.chance > b.chance end
+    if (a.price or 0) ~= (b.price or 0) then return (a.price or 0) > (b.price or 0) end
+    return a.name < b.name
+  end)
+  return out
 end
 
 -- { { name = item name, price = copper } } for the nodes in a tooltip text, priced ones only,
