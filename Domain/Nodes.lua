@@ -20,9 +20,23 @@ end
 -- Item ID gathered from a node: the bundled table, else an item with the node's own name that
 -- the game has cached (most herbs are named after their node).
 function Nodes.Item(name)
-  local id = ns.NodeData and ns.NodeData[name]
-  if id then return id end
+  local data = ns.NodeData and ns.NodeData[name]
+  if data then return data[1] end
   return Api.ItemIDByName(name)
+end
+
+-- The most valuable rare drop from a node that has an AH price: { name, chance (%), price }.
+function Nodes.Rare(name)
+  local data = ns.NodeData and ns.NodeData[name]
+  local best
+  for _, r in ipairs((data and data.rare) or {}) do
+    local price = ns.Prices.Sell(r[1])
+    if price and (not best or price > best.price) then
+      best = { id = r[1], chance = r[2], price = price }
+    end
+  end
+  if best then best.name = (Api.Item(best.id)) or ("item " .. best.id) end
+  return best
 end
 
 -- { { name = item name, price = copper } } for the nodes in a tooltip text, priced ones only,
