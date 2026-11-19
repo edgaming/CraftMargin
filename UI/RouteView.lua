@@ -155,10 +155,11 @@ local function Box(i)
   box:SetScript("OnClick", function(self)
     local step = self.step
     if not step or step.gap then return end
+    -- Same as the profit list: click opens the recipe, shift-click shops for the whole step.
     if Api.ShiftDown() then
-      Api.OpenRecipe(step.cand.id)
-    else
       ns.Shopping.Request(step.cand.eval, ns.Leveling.Crafts(step.crafts))
+    else
+      Api.OpenRecipe(step.cand.id)
     end
   end)
   box:SetScript("OnEnter", function(self)
