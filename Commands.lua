@@ -47,8 +47,8 @@ function Commands.Debug()
   local route = ns.Leveling.last
   if route and route.info then
     local i = route.info
-    say(string.format("Last route: %d → %d, %d steps; left out: %d unpriced, %d no thresholds, %d not from a trainer, %d unknown source",
-      route.from, route.to, #route.steps, i.unpriced, i.noThresholds, i.notTrainer, i.untrained))
+    say(string.format("Last route: %d to %d, %d steps; left out: %d unpriced, %d no thresholds, %d you can't get, %d unknown source",
+      route.from, route.to, #route.steps, i.unpriced, i.noThresholds, i.unobtainable, i.unknown))
     local names = {}
     for _, r in ipairs(i.mismatches) do names[#names + 1] = string.format("%s (%d)", r.name, r.id) end
     if #names > 0 then say("Grey mismatches: " .. table.concat(names, ", ")) end

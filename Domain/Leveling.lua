@@ -31,8 +31,8 @@ end
 -- Candidate recipes for the planner, plus counts of what was left out and why.
 function Leveling.Candidates(prof, entry)
   local cands = {}
-  local info = { unpriced = 0, noThresholds = 0, untrained = 0, notTrainer = 0, mismatches = {} }
-  local function add(recipe, known, req, fee)
+  local info = { unpriced = 0, noThresholds = 0, unknown = 0, unobtainable = 0, mismatches = {} }
+  local function add(recipe, known, req, fee, how)
     local yellow, grey, mismatch = Leveling.Thresholds(recipe)
     if not yellow then
       info.noThresholds = info.noThresholds + 1
@@ -47,33 +47,91 @@ function Leveling.Candidates(prof, entry)
     cands[#cands + 1] = {
       id = recipe.id, name = recipe.name, out = recipe.out, recipe = recipe, eval = r,
       yellow = yellow, grey = grey, req = req, fee = fee, known = known,
-      points = recipe.points or 1, net = r.cost - resale(r), source = recipe.source,
+      points = recipe.points or 1, net = r.cost - resale(r), how = how,
     }
   end
   for _, recipe in ipairs(entry.recipes) do add(recipe, true, 0, 0) end
   for _, recipe in ipairs(entry.unlearned or {}) do
-    local req, fee = Leveling.TrainerTerms(prof, recipe)
-    if req then
-      add(recipe, false, req, fee)
-    elseif req == false then
-      info.notTrainer = info.notTrainer + 1
+    local how, why = Leveling.Acquire(prof, recipe)
+    if how then
+      add(recipe, false, how.skill, how.fee, how)
+    elseif why == "unknown" then
+      info.unknown = info.unknown + 1
     else
-      info.untrained = info.untrained + 1
+      info.unobtainable = info.unobtainable + 1
     end
   end
   return cands, info
 end
 
--- Skill and fee to learn an unlearned recipe from a trainer. A trainer you've visited wins (its
--- fee includes your reputation discount); otherwise the bundled What's Training data.
--- Returns skill, fee; false if no trainer teaches it; nil if nothing is known.
-function Leveling.TrainerTerms(prof, recipe)
+local function forFaction(places, faction)
+  for _, p in ipairs(places or {}) do
+    if p[2] == "" or p[2] == faction then return true end
+  end
+  return false
+end
+
+local function zones(places, faction, field)
+  local out, seen = {}, {}
+  for _, p in ipairs(places or {}) do
+    local mine = (field == 3 and (p[3] == "" or p[3] == faction)) or (field == 2 and (p[2] == "" or p[2] == faction))
+    local name = mine and Api.AreaName(field == 3 and p[2] or p[1])
+    if name and not seen[name] then
+      seen[name] = true
+      out[#out + 1] = name
+    end
+  end
+  return out
+end
+
+-- Reputation a recipe needs: met when any listed faction is at the standing (pairs cover the
+-- Alliance and Horde versions of the same faction).
+local function repMet(rep)
+  if not rep then return true end
+  for _, need in ipairs(rep) do
+    local standing = Api.Standing(need[1])
+    if standing and standing >= need[2] then return true end
+  end
+  return false
+end
+
+-- How to get an unlearned recipe, cheapest reliable way first: trainer, vendor, the AH (for a
+-- pattern that drops but can be traded), then a quest. Returns
+--   { kind, skill, fee, priceKnown, zones, favor, level }
+-- or nil plus "unknown" (no data) or "unobtainable" (nothing your character can use).
+function Leveling.Acquire(prof, recipe)
   local seen = ns.Trainer.For(prof.name, recipe.name)
-  if seen then return seen.skill, seen.cost or 0 end
+  if seen then return { kind = "trainer", skill = seen.skill, fee = seen.cost or 0, priceKnown = true } end
   local data = ns.RecipeSources and ns.RecipeSources[recipe.id]
-  if not data then return nil end
-  if not data[3]:find("t", 1, true) then return false end
-  return data[1], data[2]
+  if not data then return nil, "unknown" end
+  local skill, src, faction = data[1], data[3], Api.Faction()
+  if not repMet(data.rep) then return nil, "unobtainable" end
+
+  if src:find("t", 1, true) then
+    return { kind = "trainer", skill = skill, fee = data[2], priceKnown = true }
+  end
+  if src:find("v", 1, true) and (not data.vendors or forFaction(data.vendors, faction)) then
+    local seenPrice = data.teach and ns.Vendor.Recorded(data.teach)
+    local price = seenPrice or data.price
+    return {
+      kind = "vendor", skill = skill, fee = price or 0, priceKnown = price ~= nil,
+      zones = zones(data.vendors, faction, 2), favor = data.favor,
+    }
+  end
+  if data.teach and not data.bound then
+    local ah = ns.Prices.Sell(data.teach)
+    if ah then return { kind = "ah", skill = skill, fee = ah, priceKnown = true } end
+  end
+  if src:find("q", 1, true) and data.quests then
+    local level
+    for _, q in ipairs(data.quests) do
+      if q[3] == "" or q[3] == faction then level = math.min(level or q[4], q[4]) end
+    end
+    if level then
+      return { kind = "quest", skill = skill, fee = 0, priceKnown = true, zones = zones(data.quests, faction, 3), level = level }
+    end
+  end
+  return nil, "unobtainable"
 end
 
 function Leveling.Pins(prof)
@@ -123,7 +181,17 @@ local L = {
   CHANCE = "Skill-up chance",
   CRAFTS = "Crafts",
   LEARN = "Learn",
-  TRAINER = "trainer · %s (skill %d)",
+  TRAINER = "Trainer · %s",
+  VENDOR = "Vendor · %s",
+  VENDOR_UNKNOWN = "Vendor · price unknown",
+  AH = "Auction house · %s",
+  QUEST = "Quest reward",
+  SKILL_NEEDED = "  Needs skill",
+  WHERE = "  Where",
+  FAVOR = "  Also costs",
+  FAVOR_TEXT = "%d Merchant's Favor",
+  QUEST_LEVEL = "  Quest level",
+  GREEN = "Green: only because nothing yellow or orange fits here",
   PINNED = "Pinned here — reset the route to undo",
 }
 
@@ -154,10 +222,32 @@ function Leveling.StepLines(c, from, to, crafts)
   local value = r.best and r[r.best].revenue or 0
   add(L.SELLS, "+" .. U.Money(value) .. (r.best and (" " .. U.Color("muted", r.best == "ah" and "AH" or "vendor")) or ""))
   add(L.NET, U.Money(math.abs(c.net)) .. (c.net < 0 and " profit" or ""), c.net < 0 and "good" or nil)
-  add(L.CHANCE, U.Percent(ns.Planner.Chance(c, from)) .. " → " .. U.Percent(ns.Planner.Chance(c, to - 1)))
+  add(L.CHANCE, U.Percent(ns.Planner.Chance(c, from)) .. " to " .. U.Percent(ns.Planner.Chance(c, to - 1)))
   add(L.CRAFTS, "about " .. Leveling.Crafts(crafts))
-  if not c.known then add(L.LEARN, string.format(L.TRAINER, U.Money(c.fee), c.req)) end
+  if not c.known then
+    local how = c.how or { kind = "trainer", fee = c.fee }
+    add(L.LEARN, Leveling.SourceText(how), "warn")
+    add(L.SKILL_NEEDED, tostring(c.req))
+    if how.zones and #how.zones > 0 then add(L.WHERE, table.concat(how.zones, ", ")) end
+    if how.level then add(L.QUEST_LEVEL, tostring(how.level)) end
+    if how.favor then add(L.FAVOR, string.format(L.FAVOR_TEXT, how.favor)) end
+  end
   return lines
 end
+
+-- Short wording for how a recipe is learned: "Trainer · 10s", "Vendor · 90s", "Quest reward".
+function Leveling.SourceText(how)
+  local U = ns.Util
+  if how.kind == "vendor" then
+    return how.priceKnown and string.format(L.VENDOR, U.Money(how.fee)) or L.VENDOR_UNKNOWN
+  elseif how.kind == "ah" then
+    return string.format(L.AH, U.Money(how.fee))
+  elseif how.kind == "quest" then
+    return L.QUEST
+  end
+  return string.format(L.TRAINER, U.Money(how.fee))
+end
+
+Leveling.GREEN_TEXT = L.GREEN
 
 Leveling.PINNED_TEXT = L.PINNED

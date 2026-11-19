@@ -6,28 +6,29 @@ ns.UI.Route = Route
 local UI, Util, Api = ns.UI, ns.Util, ns.Api
 
 local L = {
-  TITLE = "%s %d → %d",
+  TITLE = "%s %d to %d",
   TOTAL = "About %s after selling",
   TOTAL_PROFIT = "Makes about %s",
   RESET = "Reset route",
   MAXED = "%s is maxed.",
-  SKILL = "Skill %d → %d · about %d crafts",
+  SKILL = "Skill %d to %d · about %d crafts",
   HERE = "You are here",
   KNOWN = "Known",
-  LEARN = "Learn: trainer · %s",
   PINNED = "pinned",
-  ALTS = "%d alternatives",
-  ALT = "%d alternative",
-  HIDE = "Hide alternatives",
+  ALTS = "%d other recipes for this range",
+  ALT = "1 other recipe for this range",
+  HIDE = "Hide other recipes",
+  USE = "Use this",
   ALT_ROW = "×%d",
   MORE = "+%s",
   LESS = "-%s",
   SAME = "same",
-  GAP = "No priced recipe for %d–%d",
+  GAP = "No priced recipe from %d to %d",
   USE_THIS = "Click to use this recipe here",
 }
 
-local BOX_W, BOX_H, GAP_H, LINK_H, ALT_H, HEADER_H = 568, 62, 32, 10, 22, 46
+local BOX_W, BOX_H, GAP_H, LINK_H, ALT_H, HEADER_H = 568, 74, 32, 10, 22, 46
+local MORE_Y = -54 -- the "other recipes" bar
 local COLORS = { { 1, 0.5, 0.25 }, { 1, 0.9, 0.1 }, { 0.3, 0.8, 0.3 } }
 
 Route.boxes, Route.links = {}, {}
@@ -77,7 +78,7 @@ local function AltRow(box, i)
   local row = box.alts[i]
   if row then return row end
   row = CreateFrame("Button", nil, box)
-  row:SetSize(BOX_W - 60, ALT_H)
+  row:SetSize(BOX_W - 62, ALT_H)
   row:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
   row.icon = row:CreateTexture(nil, "ARTWORK")
   row.icon:SetSize(16, 16)
@@ -86,9 +87,12 @@ local function AltRow(box, i)
   row.name = UI.Text(row, "GameFontHighlightSmall", "LEFT")
   row.name:SetPoint("LEFT", 22, 0)
   row.crafts = UI.Text(row, "GameFontDisableSmall", "RIGHT")
-  row.crafts:SetPoint("RIGHT", -90, 0)
+  row.crafts:SetPoint("RIGHT", -150, 0)
   row.delta = UI.Text(row, "GameFontHighlightSmall", "RIGHT")
-  row.delta:SetPoint("RIGHT", -4, 0)
+  row.delta:SetPoint("RIGHT", -64, 0)
+  row.use = UI.Text(row, "GameFontNormalSmall", "RIGHT")
+  row.use:SetPoint("RIGHT", -4, 0)
+  row.use:SetText(L.USE)
   row:SetScript("OnEnter", function(self)
     local a, step = self.alt, self.step
     if not a then return end
@@ -115,6 +119,13 @@ local function Box(i)
   box:RegisterForClicks("LeftButtonUp")
   box:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
 
+  -- A yellow bar down the left edge marks a recipe you haven't learned yet.
+  box.accent = box:CreateTexture(nil, "ARTWORK")
+  box.accent:SetColorTexture(1, 0.82, 0, 0.9)
+  box.accent:SetWidth(3)
+  box.accent:SetPoint("TOPLEFT", 4, -4)
+  box.accent:SetPoint("BOTTOMLEFT", 4, 4)
+
   box.icon = box:CreateTexture(nil, "ARTWORK")
   box.icon:SetSize(32, 32)
   box.icon:SetPoint("TOPLEFT", 10, -10)
@@ -139,11 +150,17 @@ local function Box(i)
     box.strip[k] = t
   end
 
+  -- "+ 2 other recipes for this range": a full-width bar with a plus/minus button and a hover glow.
   box.more = CreateFrame("Button", nil, box)
-  box.more:SetSize(140, 14)
-  box.more:SetPoint("TOPRIGHT", -12, -42)
-  box.more.text = UI.Text(box.more, "GameFontNormalSmall", "RIGHT")
-  box.more.text:SetPoint("RIGHT")
+  box.more:SetHeight(18)
+  box.more:SetPoint("TOPLEFT", box, "TOPLEFT", 46, MORE_Y)
+  box.more:SetPoint("TOPRIGHT", box, "TOPRIGHT", -8, MORE_Y)
+  box.more:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
+  box.more.icon = box.more:CreateTexture(nil, "ARTWORK")
+  box.more.icon:SetSize(14, 14)
+  box.more.icon:SetPoint("LEFT", 2, 0)
+  box.more.text = UI.Text(box.more, "GameFontNormalSmall", "LEFT")
+  box.more.text:SetPoint("LEFT", box.more.icon, "RIGHT", 6, 0)
   box.more:SetScript("OnClick", function()
     local step = box.step
     if not step then return end
@@ -166,6 +183,7 @@ local function Box(i)
     local step = self.step
     if not step or step.gap then return end
     local lines = ns.Leveling.StepLines(step.cand, step.from, step.to, step.crafts)
+    if step.green then lines[#lines + 1] = { ns.Leveling.GREEN_TEXT, nil, "muted" } end
     if step.pinned then lines[#lines + 1] = { ns.Leveling.PINNED_TEXT, nil, "muted" } end
     UI.Tooltip(self, step.cand.name, lines)
   end)
@@ -187,7 +205,7 @@ end
 
 local function DrawStrip(box, step)
   local o, y, g = ns.Leveling.Colors(step.cand, step.from, step.to)
-  local width = BOX_W - 50 - 160
+  local width = BOX_W - 50 - 12
   local total = math.max(1, o + y + g)
   local x = 50
   for k, n in ipairs({ o, y, g }) do
@@ -207,6 +225,7 @@ local function DrawBox(box, step, first)
   if step.gap then
     for _, fs in ipairs({ box.name, box.cost, box.skill, box.side }) do fs:SetText("") end
     box.icon:Hide()
+    box.accent:Hide()
     for _, t in ipairs(box.strip) do t:Hide() end
     box.more:Hide()
     box.gapText:SetText(string.format(L.GAP, step.from, step.to))
@@ -217,29 +236,37 @@ local function DrawBox(box, step, first)
   end
   local c = step.cand
   box.gapText:Hide()
+  box.accent:SetShown(not c.known)
   box.icon:SetTexture(Api.ItemIcon(c.out))
   box.icon:Show()
   box.name:SetText(c.name)
+  UI.SetColor(box.name, c.known and "text" or "warn")
   box.cost:SetText(step.cost < 0 and ("+" .. Util.Money(-step.cost)) or Util.Money(step.cost))
   UI.SetColor(box.cost, step.cost < 0 and "good" or "text")
   box.skill:SetText(string.format(L.SKILL, step.from, step.to, ns.Leveling.Crafts(step.crafts))
     .. (step.pinned and (" · " .. L.PINNED) or ""))
-  local side = first and L.HERE or (c.known and L.KNOWN or string.format(L.LEARN, Util.Money(c.fee)))
-  box.side:SetText(side)
-  UI.SetColor(box.side, first and "head" or "muted")
+  if not c.known then
+    box.side:SetText(ns.Leveling.SourceText(c.how or { kind = "trainer", fee = c.fee, priceKnown = true }))
+    UI.SetColor(box.side, "warn")
+  else
+    box.side:SetText(first and L.HERE or L.KNOWN)
+    UI.SetColor(box.side, first and "head" or "muted")
+  end
   DrawStrip(box, step)
 
   local n = #step.alternatives
   local open = Route.expanded[step.from] and n > 0
   box.more:SetShown(n > 0)
-  box.more.text:SetText(open and L.HIDE or string.format(n == 1 and L.ALT or L.ALTS, n))
-  local h = BOX_H
+  box.more.text:SetText(open and L.HIDE or (n == 1 and L.ALT or string.format(L.ALTS, n)))
+  box.more.icon:SetTexture(open and "Interface\\Buttons\\UI-MinusButton-Up" or "Interface\\Buttons\\UI-PlusButton-Up")
+  local h = n > 0 and BOX_H or (BOX_H - 20)
   if open then
     for k, a in ipairs(step.alternatives) do
       local row = AltRow(box, k)
       row.alt, row.step = a, step
       row.icon:SetTexture(Api.ItemIcon(a.cand.out))
       row.name:SetText(a.cand.name)
+      UI.SetColor(row.name, a.cand.known and "text" or "warn")
       row.crafts:SetText(string.format(L.ALT_ROW, ns.Leveling.Crafts(a.crafts)))
       local d = math.floor(a.delta + 0.5)
       if d > 0 then
@@ -253,7 +280,7 @@ local function DrawBox(box, step, first)
         UI.SetColor(row.delta, "muted")
       end
       row:ClearAllPoints()
-      row:SetPoint("TOPLEFT", box, "TOPLEFT", 50, -(BOX_H - 4) - (k - 1) * ALT_H)
+      row:SetPoint("TOPLEFT", box, "TOPLEFT", 50, -(BOX_H - 2) - (k - 1) * ALT_H)
       row:Show()
     end
     h = BOX_H + n * ALT_H + 2

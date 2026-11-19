@@ -270,6 +270,11 @@ end
 ---------------------------------------------------------------------------
 -- Items
 
+C_Map = { GetAreaInfo = function(id) return Mock.areas and Mock.areas[id] end }
+C_Reputation = {
+  GetFactionDataByID = function(id) local r = Mock.reps and Mock.reps[id] return r and { reaction = r } end,
+}
+
 C_Item = {
   GetItemInfo = function(id)
     local it = Mock.items[id]

@@ -29,7 +29,7 @@ Unzip so the folder sits directly in `Interface\AddOns\CraftMargin\` (the `.toc`
 - Learned recipes for the current character only.
 - No sales volume: a recipe can show a big margin and still sell slowly.
 - Crafted materials are costed at their AH price, not at the cost of crafting them yourself.
-- The levelling route only includes unlearned recipes taught by trainers; vendor, drop and quest recipes aren't planned yet.
+- The levelling route plans unlearned recipes from trainers, vendors, quests, and tradeable drops you can buy on the AH. Green recipes are used only where nothing orange or yellow fits. Recipes behind reputation you don't have are left out; Merchant's Favor costs are shown but not counted in gold.
 
 ## Development
 

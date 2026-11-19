@@ -134,6 +134,27 @@ function Api.TrainerServices()
   return out
 end
 
+function Api.AreaName(areaID)
+  if not (areaID and areaID > 0 and C_Map and C_Map.GetAreaInfo) then return nil end
+  local ok, name = pcall(C_Map.GetAreaInfo, areaID)
+  name = ok and clean(name) or nil
+  if name == "" then return nil end
+  return name
+end
+
+-- Standing with a faction (1 hated ... 8 exalted), nil if unknown.
+function Api.Standing(factionID)
+  if C_Reputation and C_Reputation.GetFactionDataByID then
+    local ok, data = pcall(C_Reputation.GetFactionDataByID, factionID)
+    if ok and data and data.reaction then return clean(data.reaction) end
+  end
+  if GetFactionInfoByID then
+    local ok, _, _, standing = pcall(GetFactionInfoByID, factionID)
+    if ok then return clean(standing) end
+  end
+  return nil
+end
+
 function Api.ReagentBasicType()
   return Enum and Enum.CraftingReagentType and Enum.CraftingReagentType.Basic
 end

@@ -27,6 +27,25 @@ def toc_files():
     return files, version
 
 
+def glyph_problems(files):
+    """Text the player sees must use characters WoW's default font has (roughly Windows-1252);
+    anything else, like an arrow, draws as an empty box."""
+    problems = []
+    for path in files:
+        if path.endswith("Data.lua") or path.endswith("RecipeSources.lua"):
+            continue
+        with open(os.path.join(ROOT, path), encoding="utf-8") as f:
+            for n, line in enumerate(f, start=1):
+                code = line.split("--", 1)[0]
+                for ch in code:
+                    if ord(ch) > 127:
+                        try:
+                            ch.encode("cp1252")
+                        except UnicodeEncodeError:
+                            problems.append(f"{path}:{n}: {ch!r} (U+{ord(ch):04X}) isn't in the game font")
+    return problems
+
+
 def runtime(files, test_file):
     lua = lupa.LuaRuntime(unpack_returned_tuples=True)
     g = lua.globals()
@@ -45,6 +64,8 @@ def main():
     failures, count = [], 0
     if version not in (expected, "@project-version@"):
         failures.append(("toc", f"## Version {version} != VERSION {expected}"))
+    for problem in glyph_problems(files):
+        failures.append(("toc", problem))
 
     for test_file in sorted(glob.glob(os.path.join(ROOT, "tests", "t_*.lua"))):
         base = os.path.basename(test_file)

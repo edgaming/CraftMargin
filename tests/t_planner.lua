@@ -39,13 +39,28 @@ test("one recipe: crafts and cost add up over the range", function()
   eq(plan.total, s.cost)
 end)
 
-test("an older recipe that's still cheaper wins over the newest", function()
+test("an older recipe that's still cheaper wins over the newest while it's yellow", function()
   local P = Boot().Planner
-  local plan = P.Plan(100, 130, {
+  local plan = P.Plan(100, 120, {
     cand({ id = 1, name = "Old", yellow = 90, grey = 150, net = 10 }),
     cand({ id = 2, name = "New", yellow = 140, grey = 180, net = 40 }),
   })
+  eq(names(plan), "Old 100-120")
+end)
+
+test("green only when nothing orange or yellow fits", function()
+  local P = Boot().Planner
+  -- Old turns green at 120; New is orange from 100 but much dearer.
+  local plan = P.Plan(100, 130, {
+    cand({ id = 1, name = "Old", yellow = 90, grey = 150, net = 1 }),
+    cand({ id = 2, name = "New", yellow = 140, grey = 180, net = 400 }),
+  })
+  eq(names(plan), "Old 100-120, New 120-130")
+  eq(plan.steps[1].green, false)
+  -- With nothing else, green is used.
+  plan = P.Plan(100, 130, { cand({ id = 1, name = "Old", yellow = 90, grey = 150, net = 1 }) })
   eq(names(plan), "Old 100-130")
+  eq(plan.steps[1].green, true)
 end)
 
 test("switches once the cheap recipe gets too unlikely", function()

@@ -31,6 +31,15 @@ local function available(c, s)
   return c.req <= s and Planner.Chance(c, s) > 0
 end
 
+-- Green starts halfway between yellow and grey.
+function Planner.Green(c)
+  return math.floor((c.yellow + c.grey) / 2)
+end
+
+local function isGreen(c, s)
+  return s >= Planner.Green(c)
+end
+
 -- Expected copper per skill point, and expected crafts per point, at skill s.
 function Planner.PerPoint(c, s)
   local ch = Planner.Chance(c, s) * (c.points or 1)
@@ -77,10 +86,21 @@ function Planner.Plan(from, to, cands, pins)
       end
     end
 
+    -- Green recipes only when nothing orange or yellow can be crafted at this point.
+    local greenOK = true
+    if not pinIndex then
+      for _, c in ipairs(cands) do
+        if available(c, s) and not isGreen(c, s) then
+          greenOK = false
+          break
+        end
+      end
+    end
+
     local cur, curMin, curArg = {}, INF, nil
     local b = {}
     for i, c in ipairs(cands) do
-      if (not pinIndex or i == pinIndex) and available(c, s) then
+      if (not pinIndex or i == pinIndex) and available(c, s) and (greenOK or pinIndex or not isGreen(c, s)) then
         local step = Planner.PerPoint(c, s)
         local best, origin = INF, nil
         if prev and prev[i] then best, origin = prev[i], i end
@@ -129,7 +149,7 @@ function Planner.Plan(from, to, cands, pins)
       local cost, crafts = cover(c, s, e + 1)
       local pin = pinAt(pins, s)
       local step = {
-        cand = c, from = s, to = e + 1, cost = cost, crafts = crafts,
+        cand = c, from = s, to = e + 1, cost = cost, crafts = crafts, green = isGreen(c, e),
         chanceFrom = Planner.Chance(c, s), chanceTo = Planner.Chance(c, e),
         pinned = pin ~= nil and pin.id == c.id,
         alternatives = {},

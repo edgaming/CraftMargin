@@ -1,50 +1,120 @@
 """Generate Domain/RecipeSources.lua from What's Training's WoW Forever recipe data.
 
-Usage: python3 tools/gen_recipe_sources.py <WhatsTraining checkout> > Domain/RecipeSources.lua
+Usage: python3 tools/gen_recipe_sources.py <WhatsTraining checkout> [<CMaNGOS ClassicDB .sql.gz>] > Domain/RecipeSources.lua
 
 Reads Crafting/Recipes/Camelot/*.lua (Forever's internal name is "camelot") from
-https://github.com/fusionpit/WhatsTraining (MIT licence, see THIRD_PARTY_LICENSES) and keeps,
-per recipe spell: the skill needed to learn it, the trainer fee, and where it comes from.
+https://github.com/fusionpit/WhatsTraining (MIT licence, see THIRD_PARTY_LICENSES) and keeps, per
+recipe spell, what the levelling planner needs: the skill to learn it, the trainer fee, where it
+comes from (trainer, vendor, quest, drop), the pattern item and whether it binds, the zones and
+factions of its vendors and quests, and any reputation or Merchant's Favor it needs.
+
+With the CMaNGOS database, Classic patterns also get their vendor price (new Forever patterns
+don't; the addon records those when you visit a vendor).
 """
 import glob
+import gzip
+import math
 import os
+import re
 import sys
 
 import lupa.lua51 as lupa
 
 SHORT = {"trainer": "t", "vendor": "v", "drop": "d", "quest": "q", "world_object": "o"}
+FACTION = {"Alliance": "A", "Horde": "H"}
 
 
-def main(root):
+def pattern_prices(path):
+    """item entry -> vendor buy price, for Recipe-class (9) items."""
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from gen_vendor_prices import split_rows
+    cols, rows, cur = [], [], False
+    with gzip.open(path, "rt", encoding="utf-8", errors="replace") as f:
+        for line in f:
+            m = re.match(r"CREATE TABLE `(\w+)`", line)
+            if m:
+                cur = m.group(1) == "item_template"
+                continue
+            if cur and line.startswith("  `"):
+                cols.append(line.split("`")[1])
+                continue
+            m = re.match(r"INSERT INTO `item_template` VALUES (.*);\s*$", line)
+            if m:
+                rows.extend(split_rows(m.group(1)))
+    idx = {c: i for i, c in enumerate(cols)}
+    out = {}
+    for r in rows:
+        if int(r[idx["class"]]) == 9 and int(r[idx["BuyPrice"]]) > 0:
+            out[int(r[idx["entry"]])] = math.ceil(int(r[idx["BuyPrice"]]) / max(1, int(r[idx["BuyCount"]])))
+    return out
+
+
+def lua_list(items):
+    return "{ " + ", ".join(items) + " }"
+
+
+def places(locations, with_quest):
+    out = []
+    for loc in (locations or {}).values():
+        area = int(loc["area"] or 0)
+        faction = FACTION.get(loc["faction"] or "", "")
+        if with_quest:
+            out.append(f'{{ {int(loc["id"])}, {area}, "{faction}", {int(loc["level"] or 0)} }}')
+        else:
+            out.append(f'{{ {area}, "{faction}" }}')
+    return lua_list(out)
+
+
+def main(root, db=None):
+    prices = pattern_prices(db) if db else {}
     files = sorted(glob.glob(os.path.join(root, "Crafting", "Recipes", "Camelot", "*.lua")))
     lua = lupa.LuaRuntime(unpack_returned_tuples=True)
     ns = lua.eval("{ L = setmetatable({}, { __index = function(_, k) return k end }) }")
+    load = lua.execute("return function(src, ns) return assert(loadstring(src))('WhatsTraining', ns) end")
     for path in files:
-        chunk = lua.execute("return function(src, ns) return assert(loadstring(src))('WhatsTraining', ns) end")
-        chunk(open(path, encoding="utf-8").read(), ns)
+        load(open(path, encoding="utf-8").read(), ns)
     commit = os.popen(f"git -C {root} rev-parse --short HEAD").read().strip() or "unknown"
 
     out = {}
-    for skill_line, recipes in ns.Recipes.items():
+    for recipes in ns.Recipes.values():
         for r in recipes.values():
-            spell, skill = r["spell"], r["skill"]
-            if not spell or skill is None or r["rank"]:
+            if not r["spell"] or r["skill"] is None or r["rank"]:
                 continue
-            sources = "".join(SHORT.get(s, "?") for s in (r["source"] or {}).values()) if r["source"] else ""
-            out[int(spell)] = (int(skill), int(r["cost"] or 0), sources)
+            src = "".join(SHORT.get(s, "?") for s in r["source"].values()) if r["source"] else ""
+            fields = [str(int(r["skill"])), str(int(r["cost"] or 0)), f'"{src}"']
+            teach = r["teach"]
+            if teach:
+                fields.append(f"teach = {int(teach)}")
+                if int(teach) in prices:
+                    fields.append(f"price = {prices[int(teach)]}")
+            if r["bound"]:
+                fields.append("bound = true")
+            if r["vendors"]:
+                fields.append("vendors = " + places(r["vendors"], False))
+            if r["quests"]:
+                fields.append("quests = " + places(r["quests"], True))
+            if r["reputation"]:
+                rep = list(r["reputation"].values())
+                pairs = [f"{{ {int(rep[i])}, {int(rep[i + 1])} }}" for i in range(0, len(rep) - 1, 3)]
+                fields.append("rep = " + lua_list(pairs))
+            if r["merchantFavor"]:
+                fields.append(f"favor = {int(r['merchantFavor'])}")
+            out[int(r["spell"])] = fields
 
     print("-- Generated by tools/gen_recipe_sources.py from What's Training's WoW Forever recipe data")
     print(f"-- (github.com/fusionpit/WhatsTraining @ {commit}, MIT licence: see THIRD_PARTY_LICENSES).")
-    print("-- [recipe spell] = { skill to learn, trainer fee in copper, sources }")
-    print("-- sources: t trainer, v vendor, d drop, q quest, o world object. Do not edit by hand.")
+    print("-- [recipe spell] = { skill to learn, trainer fee in copper, sources, teach = pattern item,")
+    print("--   price = Classic vendor price of the pattern, bound, vendors = { { area, faction } },")
+    print("--   quests = { { quest, area, faction, level } }, rep = { { faction ID, standing } }, favor = Merchant's Favor }")
+    print("-- sources: t trainer, v vendor, d drop, q quest, o world object; faction A, H or \"\" for both.")
+    print("-- Do not edit by hand.")
     print("local _, ns = ...")
     print("ns.RecipeSources = {")
     for spell in sorted(out):
-        skill, cost, src = out[spell]
-        print(f'  [{spell}] = {{ {skill}, {cost}, "{src}" }},')
+        print(f"  [{spell}] = {{ {', '.join(out[spell])} }},")
     print("}")
-    print(f"-- {len(out)} recipes from {len(files)} files", file=sys.stderr)
+    print(f"-- {len(out)} recipes from {len(files)} files, {len(prices)} pattern prices", file=sys.stderr)
 
 
 if __name__ == "__main__":
-    main(sys.argv[1])
+    main(sys.argv[1], sys.argv[2] if len(sys.argv) > 2 else None)

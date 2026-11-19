@@ -27,12 +27,25 @@ function Vendor.Record()
   ns.db.vendor[faction] = t
   local changed = false
   for _, item in ipairs(Api.MerchantItems()) do
-    if item.unlimited and (not t[item.id] or item.price < t[item.id]) then
+    if (item.unlimited or Vendor.IsPattern(item.id)) and (not t[item.id] or item.price < t[item.id]) then
       t[item.id] = item.price
       changed = true
     end
   end
   if changed then ns.Update() end
+end
+
+-- Recipe patterns (the items that teach a recipe) from the bundled recipe sources; vendors often
+-- sell these in limited supply, so they're recorded even then.
+local patterns
+function Vendor.IsPattern(itemID)
+  if not patterns then
+    patterns = {}
+    for _, data in pairs(ns.RecipeSources or {}) do
+      if data.teach then patterns[data.teach] = true end
+    end
+  end
+  return patterns[itemID] == true
 end
 
 function Vendor.Count()
