@@ -85,3 +85,19 @@ test("bags closed: nothing highlighted, nothing breaks", function()
   eq(target, nil)
   eq(cheapest.itemID, 1001)
 end)
+
+test("frames whose state is secret are skipped, not tested", function()
+  local ns = world()
+  local SECRET = setmetatable({}, { __tostring = function() return "secret" end })
+  Mock.secret[SECRET] = true
+  local decoy = CreateFrame("Frame", nil, UIParent)
+  function decoy:IsVisible() return SECRET end
+  function decoy:GetBagID() return 0 end
+  decoy:SetID(3)
+  local nameplate = CreateFrame("Frame", nil, UIParent)
+  function nameplate:IsVisible() error("attempt to perform boolean test on a secret boolean value") end
+  local buttons = open()
+  local target = ns.UI.BagHighlight.Target()
+  eq(target, buttons["0:3"], "the real button, past the secret ones")
+  ok(not Printed("Craft Margin error"), "no error")
+end)

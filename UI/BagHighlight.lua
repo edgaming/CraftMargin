@@ -15,6 +15,23 @@ local L = {
 local border, target, cheapest
 local THICK = 2
 
+-- Midnight hides some frames' state from addons ("secret" values); testing one is an error,
+-- so every answer from a frame is checked before it's used.
+local IsSecret = ns.Util.IsSecret
+local function ask(f, method)
+  local fn = f[method]
+  if type(fn) ~= "function" then return nil end
+  local ok, v = pcall(fn, f)
+  if not ok or IsSecret(v) then return nil end
+  return v
+end
+
+local function field(f, key)
+  local v = rawget(f, key)
+  if IsSecret(v) then return nil end
+  return v
+end
+
 local function MakeBorder()
   if border then return border end
   border = CreateFrame("Frame", nil, UIParent)
@@ -34,7 +51,7 @@ local function MakeBorder()
   border:Hide()
   border:SetScript("OnUpdate", function(self)
     -- Follow the button: gone when the bag window closes or the slot is redrawn.
-    if not target or not target:IsVisible() then
+    if not target or ask(target, "IsVisible") ~= true then
       self:Hide()
       target = nil
     end
@@ -43,22 +60,22 @@ local function MakeBorder()
 end
 
 local function slotOf(f)
-  local bag, slot
-  if f.GetBagID then
-    local ok, b = pcall(f.GetBagID, f)
-    if ok then bag = b end
-  end
-  bag = bag or rawget(f, "bagID") or rawget(f, "bag")
-  if f.GetID then slot = f:GetID() end
-  slot = (slot and slot > 0) and slot or rawget(f, "slotID") or rawget(f, "slot")
+  local bag = ask(f, "GetBagID") or field(f, "bagID") or field(f, "bag")
+  local slot = ask(f, "GetID")
+  if type(slot) ~= "number" or slot <= 0 then slot = field(f, "slotID") or field(f, "slot") end
   return bag, slot
+end
+
+-- Only frames that look like bag item buttons get asked anything else.
+local function looksLikeBagButton(f)
+  return type(f) == "table" and (type(f.GetBagID) == "function" or rawget(f, "bagID") ~= nil)
 end
 
 -- The visible item button showing bag/slot, from any bag addon.
 function BagHighlight.FindButton(bag, slot)
   local f = EnumerateFrames()
   while f do
-    if f:IsVisible() and (f.GetBagID or rawget(f, "bagID")) then
+    if looksLikeBagButton(f) and ask(f, "IsVisible") == true then
       local b, s = slotOf(f)
       if b == bag and s == slot then return f end
     end
