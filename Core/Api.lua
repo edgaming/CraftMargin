@@ -184,12 +184,32 @@ end
 ---------------------------------------------------------------------------
 -- Items
 
--- name, bindType, vendor sell value (all nil until the game has the item cached)
+-- name, bindType, vendor sell value, class ID (all nil until the game has the item cached)
 function Api.Item(itemID)
   local getInfo = (C_Item and C_Item.GetItemInfo) or GetItemInfo
   if not getInfo then return nil end
   local r = { getInfo(itemID) }
-  return clean(r[1]), clean(r[14]), clean(r[11])
+  return clean(r[1]), clean(r[14]), clean(r[11]), clean(r[12])
+end
+
+-- Everything in your bags: { { bag, slot, itemID, count, bound, noValue } }
+function Api.BagItems()
+  local out = {}
+  local C = C_Container
+  if not (C and C.GetContainerNumSlots and C.GetContainerItemInfo) then return out end
+  local last = NUM_BAG_SLOTS or 4
+  if Enum and Enum.BagIndex and Enum.BagIndex.ReagentBag then last = math.max(last, Enum.BagIndex.ReagentBag) end
+  for bag = 0, last do
+    for slot = 1, clean(C.GetContainerNumSlots(bag)) or 0 do
+      local info = C.GetContainerItemInfo(bag, slot)
+      local id = info and clean(info.itemID)
+      if id then
+        out[#out + 1] = { bag = bag, slot = slot, itemID = id, count = clean(info.stackCount) or 1,
+          bound = clean(info.isBound) == true, noValue = clean(info.hasNoValue) == true }
+      end
+    end
+  end
+  return out
 end
 
 local QUESTION_MARK = 134400 -- Interface\Icons\INV_Misc_QuestionMark

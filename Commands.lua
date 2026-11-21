@@ -55,6 +55,10 @@ function Commands.Debug()
   end
   local builtin, recorded = ns.Vendor.Count()
   say(string.format("Vendor prices: %d built in, %d seen", builtin, recorded))
+  local target, cheapest = ns.UI.BagHighlight.Target()
+  say("Cheapest in bags: " .. (cheapest and string.format("%s (bag %d slot %d, %s)%s",
+    (Api.Item(cheapest.itemID)) or cheapest.itemID, cheapest.bag, cheapest.slot, ns.Util.Money(cheapest.worth),
+    target and ", highlighted" or ", bag button not found") or "nothing to suggest"))
   local queued = ns.Shopping.Pending()
   say("Queued AH search: " .. (queued and (queued.recipe .. ", " .. #queued.terms .. " items") or "none"))
   say(string.format("Errors: %d", #ns.errors))

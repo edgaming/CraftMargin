@@ -70,6 +70,8 @@ function CreateFrame(kind, name, parent, template)
     _shown = true, _scripts = {}, _children = {}, _text = nil, _color = nil, _points = {} }, FrameMT)
   if name then _G[name] = f end
   if parent then table.insert(rawget(parent, "_children"), f) end
+  Mock.allFrames = Mock.allFrames or {}
+  table.insert(Mock.allFrames, f)
   if template and template:find("BasicFrameTemplate") then
     f.TitleText = f:CreateFontString()
   end
@@ -138,6 +140,37 @@ function Frame:GetTextColor() local c = self._color or { 1, 1, 1 } return c[1], 
 function Frame:SetPoint(...) table.insert(self._points, { ... }) end
 function Frame:ClearAllPoints() self._points = {} end
 function Frame:GetPoint() local p = self._points[1] or {} return p[1], p[2], p[3], p[4], p[5] end
+
+function EnumerateFrames(prev)
+  local list = Mock.allFrames or {}
+  if not prev then return list[1] end
+  for i, f in ipairs(list) do if f == prev then return list[i + 1] end end
+end
+function Frame:GetID() return rawget(self, "_id") or 0 end
+function Frame:SetID(id) self._id = id end
+function Frame:GetFrameLevel() return rawget(self, "_level") or 1 end
+function Frame:GetFrameStrata() return "MEDIUM" end
+function Frame:SetAllPoints(other) self._allPoints = other end
+
+-- Bags: Mock.bags is item counts by ID (for GetItemCount); Mock.slots[bag][slot] = { id, count, bound, noValue }
+Mock.slots = {}
+C_Container = {
+  GetContainerNumSlots = function(bag) return Mock.slots[bag] and 16 or 0 end,
+  GetContainerItemInfo = function(bag, slot)
+    local s = Mock.slots[bag] and Mock.slots[bag][slot]
+    if not s then return nil end
+    return { itemID = s.id, stackCount = s.count or 1, isBound = s.bound, hasNoValue = s.noValue }
+  end,
+}
+NUM_BAG_SLOTS = 4
+
+-- A bag window's item button, the way bag addons make them.
+function BagButton(bag, slot)
+  local b = CreateFrame("ItemButton", nil, UIParent, "ContainerFrameItemButtonTemplate")
+  b:SetID(slot)
+  function b:GetBagID() return bag end
+  return b
+end
 
 UIParent = CreateFrame("Frame", "UIParent")
 Minimap = CreateFrame("Frame", "Minimap", UIParent)
@@ -320,7 +353,7 @@ C_Item = {
     local it = Mock.items[id]
     if not it then return nil end
     local link = "|cffffffff|Hitem:" .. id .. "::::::::|h[" .. it.name .. "]|h|r"
-    return it.name, link, 1, 1, 1, "Trade Goods", "", 20, "", 134400, it.vendor or 0, 7, 0, it.bind or 0
+    return it.name, link, 1, 1, 1, "Trade Goods", "", 20, "", 134400, it.vendor or 0, it.class or 7, 0, it.bind or 0
   end,
   GetItemCount = function(id) return Mock.bags[id] or 0 end,
   GetItemIconByID = function(id) local it = Mock.items[id] return it and it.icon end,
