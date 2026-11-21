@@ -33,7 +33,9 @@ function Cheapest.Find()
   local slots = {}
   for _, s in ipairs(Api.BagItems()) do
     local _, _, vendor, classID = Api.Item(s.itemID)
-    if vendor == nil then
+    if ns.db.keep[s.itemID] then
+      -- kept: never suggested
+    elseif vendor == nil then
       Api.RequestItem(s.itemID) -- not cached yet; it'll count next time
     else
       s.vendor, s.classID, s.ah = vendor, classID, ns.Prices.Sell(s.itemID)

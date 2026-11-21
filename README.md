@@ -7,7 +7,7 @@ A World of Warcraft addon for WoW Forever that shows which of your recipes make 
 - Shift-click a recipe to shop for its materials: Auctionator searches for you; with TSM you get a search string to paste.
 - Hover a profit to see the math: sale price, yield, 5% AH cut, materials.
 - Level up view: the cheapest route from your skill to 300, step by step, with craft counts, alternatives you can pin, and one-click shopping for each step.
-- A red border marks the cheapest thing in your bags (stack worth, vendor or AH), so you know what to throw away when they're full.
+- A red border marks the cheapest thing in your bags (stack worth, vendor or AH), so you know what to throw away when they're full. Ctrl+Shift-click an item to keep it out of the suggestions.
 - It never posts, buys or whispers anything.
 
 ## Install
@@ -23,7 +23,8 @@ Unzip so the folder sits directly in `Interface\AddOns\CraftMargin\` (the `.toc`
 ## Commands
 
 - `/margin` opens or closes the window.
-- `/margin debug` prints what the addon knows, for bug reports.
+- `/margin debug` prints what the addon knows, for bug reports. `/margin debug <recipe>` shows every number behind one recipe.
+- `/margin keep <item link>` keeps an item out of the cheapest-in-bags suggestion (again to undo).
 
 ## Known limitations
 

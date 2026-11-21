@@ -18,6 +18,7 @@ function ns.InitDB()
   db.window = db.window or {}
   db.vendor = db.vendor or {} -- [faction][itemID] = cheapest copper seen at a vendor
   db.trainer = db.trainer or {} -- [profession][recipe name] = { skill, cost }
+  db.keep = db.keep or {} -- [itemID] = true: never suggested as the cheapest thing to throw away
 
   CraftMarginCharDB = CraftMarginCharDB or {}
   local char = CraftMarginCharDB

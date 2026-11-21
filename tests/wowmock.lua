@@ -38,6 +38,8 @@ end
 GetBuildInfo = function() return "1.60.1", "70888", "Nov 2026", 16001 end
 InCombatLockdown = function() return false end
 IsShiftKeyDown = function() return Mock.shift == true end
+IsControlKeyDown = function() return Mock.ctrl == true end
+HandleModifiedItemClick = function(link) Mock.modifiedClick = link end
 issecretvalue = function(v) return v ~= nil and Mock.secret[v] == true end
 UnitFactionGroup = function() return Mock.faction, Mock.faction end
 SlashCmdList = {}
@@ -82,6 +84,7 @@ function Frame:CreateFontString() return CreateFrame("FontString", nil, self) en
 function Frame:CreateTexture() return CreateFrame("Texture", nil, self) end
 function Frame:GetName() return rawget(self, "_name") end
 function Frame:GetParent() return rawget(self, "_parent") end
+function Frame:SetParent(p) self._parent = p end
 function Frame:SetScript(name, fn)
   self._scripts[name] = fn
   if name == "OnUpdate" and fn then

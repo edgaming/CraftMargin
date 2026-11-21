@@ -59,6 +59,14 @@ function Commands.Debug()
   say("Cheapest in bags: " .. (cheapest and string.format("%s (bag %d slot %d, %s)%s",
     (Api.Item(cheapest.itemID)) or cheapest.itemID, cheapest.bag, cheapest.slot, ns.Util.Money(cheapest.worth),
     target and ", highlighted" or ", bag button not found") or "nothing to suggest"))
+  if target then
+    local function v(fn) local ok, x = pcall(target[fn], target) return ok and tostring(x) or "?" end
+    say(string.format("  Button: %s, %sx%s, %s level %s, alpha %s", v("GetName"), v("GetWidth"), v("GetHeight"),
+      v("GetFrameStrata"), v("GetFrameLevel"), v("GetEffectiveAlpha")))
+  end
+  local kept = 0
+  for _ in pairs(ns.db.keep) do kept = kept + 1 end
+  say(string.format("Kept items: %d", kept))
   local queued = ns.Shopping.Pending()
   say("Queued AH search: " .. (queued and (queued.recipe .. ", " .. #queued.terms .. " items") or "none"))
   say(string.format("Errors: %d", #ns.errors))
@@ -112,9 +120,14 @@ function Commands.DebugRecipe(query)
 end
 
 function Commands.Run(msg)
-  msg = strtrim(string.lower(msg or ""))
+  local raw = strtrim(msg or "")
+  msg = string.lower(raw)
+  local keepLink = raw:match("^[Kk][Ee][Ee][Pp]%s+(.+)$")
   local query = msg:match("^debug%s+(.+)$")
-  if query then
+  if keepLink then
+    local id = ns.UI.BagHighlight.ItemIDFromLink(keepLink)
+    if id then ns.UI.BagHighlight.ToggleKeep(id) else say("Shift-click an item into the chat box after /margin keep.") end
+  elseif query then
     Commands.DebugRecipe(query)
   elseif msg == "debug" then
     Commands.Debug()
