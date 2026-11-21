@@ -55,10 +55,12 @@ function Commands.Debug()
   end
   local builtin, recorded = ns.Vendor.Count()
   say(string.format("Vendor prices: %d built in, %d seen", builtin, recorded))
+  if not (InCombatLockdown and InCombatLockdown()) then ns.Safe("bag highlight", ns.UI.BagHighlight.Refresh) end
   local target, cheapest = ns.UI.BagHighlight.Target()
   say("Cheapest in bags: " .. (cheapest and string.format("%s (bag %d slot %d, %s)%s",
     (Api.Item(cheapest.itemID)) or cheapest.itemID, cheapest.bag, cheapest.slot, ns.Util.Money(cheapest.worth),
-    target and ", highlighted" or ", bag button not found") or "nothing to suggest"))
+    target and ", highlighted" or string.format(", bag button not found among %d visible bag buttons (first is bag/slot %s)",
+      ns.UI.BagHighlight.seen or 0, ns.UI.BagHighlight.sample or "none")) or "nothing to suggest"))
   if target then
     local function v(fn) local ok, x = pcall(target[fn], target) return ok and tostring(x) or "?" end
     say(string.format("  Button: %s, %sx%s, %s level %s, alpha %s", v("GetName"), v("GetWidth"), v("GetHeight"),

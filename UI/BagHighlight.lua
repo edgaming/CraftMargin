@@ -76,17 +76,45 @@ local function looksLikeBagButton(f)
   return type(f) == "table" and (type(f.GetBagID) == "function" or rawget(f, "bagID") ~= nil)
 end
 
--- The visible item button showing bag/slot, from any bag addon.
-function BagHighlight.FindButton(bag, slot)
-  local f = EnumerateFrames()
+-- Bag windows found so far. When one opens again we look again, because bag addons don't always
+-- open through the game's bag functions (so our hooks on those never fire).
+local windows = {}
+local function windowOf(f)
+  local w, p = f, ask(f, "GetParent")
+  for _ = 1, 20 do
+    if not p or p == UIParent then return w end
+    w, p = p, ask(p, "GetParent")
+  end
+  return w
+end
+
+local function watchWindow(f, onShow)
+  local w = windowOf(f)
+  if not w or windows[w] or type(w.HookScript) ~= "function" then return end
+  windows[w] = true
+  pcall(w.HookScript, w, "OnShow", onShow)
+end
+
+-- The visible item button showing bag/slot, from any bag addon. Also returns how many visible
+-- bag buttons there were, for /margin debug.
+function BagHighlight.FindButton(bag, slot, onShow)
+  local f, found, seen = EnumerateFrames(), nil, 0
+  BagHighlight.sample = nil
   while f do
     if looksLikeBagButton(f) and ask(f, "IsVisible") == true then
+      seen = seen + 1
+      if onShow then watchWindow(f, onShow) end
       local b, s = slotOf(f)
-      if b == bag and s == slot then return f end
+      if seen == 1 then BagHighlight.sample = string.format("%s/%s", tostring(b), tostring(s)) end
+      if not found and b == bag and s == slot then found = f end
     end
     f = EnumerateFrames(f)
   end
+  return found, seen
 end
+
+local retries = 0
+local soon
 
 -- The border sits inside the slot button (so it draws with the slot, above its icon and the bag
 -- window's art). Slot buttons are protected, so the border only moves outside combat.
@@ -96,13 +124,22 @@ function BagHighlight.Refresh()
     return
   end
   cheapest = ns.Cheapest.Find()
-  local button = cheapest and BagHighlight.FindButton(cheapest.bag, cheapest.slot)
+  local button, seen
+  if cheapest then button, seen = BagHighlight.FindButton(cheapest.bag, cheapest.slot, soon) end
+  BagHighlight.seen = seen or 0
   local b = MakeBorder()
   target = button
   if not button then
     b:Hide()
+    -- Bag addons often lay out their buttons a moment after the window opens: look again a
+    -- couple of times while bag buttons are showing.
+    if cheapest and (seen or 0) > 0 and retries < 3 then
+      retries = retries + 1
+      ns.After(0.5, BagHighlight.Refresh)
+    end
     return
   end
+  retries = 0
   b:SetParent(button)
   b:ClearAllPoints()
   b:SetAllPoints(button)
@@ -138,7 +175,8 @@ BagHighlight.ItemIDFromLink = itemIDFromLink
 
 function BagHighlight.Target() return target, cheapest end
 
-local function soon()
+soon = function()
+  retries = 0
   ns.Debounce("bag highlight", 0.2, BagHighlight.Refresh)
 end
 
