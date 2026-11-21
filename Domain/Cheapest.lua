@@ -7,14 +7,15 @@ local Api = ns.Api
 
 local QUEST_CLASS = 12
 
--- Pure: worth of one bag slot, or nil if it shouldn't be suggested (worth unknown, quest item).
+-- Pure: worth of one bag slot, or nil if it shouldn't be suggested. Only things a vendor buys
+-- are suggested (no sell price usually means quest, soulbound or otherwise special); quest
+-- items never are. The AH price can make something worth more, never eligible.
 -- slot = { count, vendor (per item, may be 0), ah (per item or nil), bound, classID, noValue }
 function Cheapest.Worth(slot, cut)
-  if slot.classID == QUEST_CLASS then return nil end
-  local ah = (not slot.bound and slot.ah) and math.floor(slot.ah * (1 - cut)) or nil
-  local vendor = (not slot.noValue and slot.vendor and slot.vendor > 0) and slot.vendor or nil
-  if not ah and not vendor then return nil end
-  return (slot.count or 1) * math.max(ah or 0, vendor or 0)
+  if slot.classID == QUEST_CLASS or slot.noValue then return nil end
+  if not slot.vendor or slot.vendor <= 0 then return nil end
+  local ah = (not slot.bound and slot.ah) and math.floor(slot.ah * (1 - cut)) or 0
+  return (slot.count or 1) * math.max(ah, slot.vendor)
 end
 
 -- Pure: the cheapest of a list of slots ({ bag, slot, ... }), first one on a tie.
