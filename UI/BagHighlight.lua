@@ -54,11 +54,22 @@ local function MakeBorder()
   end
   border:Hide()
   if border.SetIgnoreParentAlpha then border:SetIgnoreParentAlpha(true) end
-  border:SetScript("OnUpdate", function(self)
-    -- Follow the button: gone when the bag window closes or the slot is redrawn.
+  local wait = 0
+  border:SetScript("OnUpdate", function(self, elapsed)
+    -- Follow the button: gone when the bag window closes. Bag addons reuse buttons when you
+    -- switch views or sort, so also check now and then that it still shows the same thing.
     if not target or ask(target, "IsVisible") ~= true then
       self:Hide()
       target = nil
+      return
+    end
+    wait = wait - (elapsed or 0)
+    if wait > 0 then return end
+    wait = 0.25
+    if not BagHighlight.StillShows(target) then
+      self:Hide()
+      target = nil
+      BagHighlight.Soon()
     end
   end)
   return border
@@ -95,22 +106,40 @@ local function watchWindow(f, onShow)
   pcall(w.HookScript, w, "OnShow", onShow)
 end
 
--- The visible item button showing bag/slot, from any bag addon. Also returns how many visible
--- bag buttons there were, for /margin debug.
-function BagHighlight.FindButton(bag, slot, onShow)
-  local f, found, seen = EnumerateFrames(), nil, 0
+-- How well a button matches the cheapest slot: 2 = that exact slot, 1 = another slot holding
+-- the same item. Views that merge stacks (EllesmereUI's All Items) show one button per item, which
+-- reports just one of its slots, so the same item is the best there is.
+local function matchOf(f, c)
+  local b, s = slotOf(f)
+  if b == c.bag and s == c.slot then return 2, b, s end
+  if ns.Api.SlotItem(b, s) == c.itemID then return 1, b, s end
+  return 0, b, s
+end
+
+-- The visible item button for the cheapest slot, from any bag addon. Also returns how many
+-- visible bag buttons there were, for /margin debug.
+function BagHighlight.FindButton(c, onShow)
+  local f, found, best, seen = EnumerateFrames(), nil, 0, 0
   BagHighlight.sample = nil
   while f do
     if looksLikeBagButton(f) and ask(f, "IsVisible") == true then
       seen = seen + 1
       if onShow then watchWindow(f, onShow) end
-      local b, s = slotOf(f)
+      local m, b, s = matchOf(f, c)
       if seen == 1 then BagHighlight.sample = string.format("%s/%s", tostring(b), tostring(s)) end
-      if not found and b == bag and s == slot then found = f end
+      if m > best then found, best = f, m end
     end
     f = EnumerateFrames(f)
   end
   return found, seen
+end
+
+-- Whether the highlighted button still shows what it showed when we picked it.
+local shownBag, shownSlot
+function BagHighlight.StillShows(f)
+  if not cheapest then return false end
+  local b, s = slotOf(f)
+  return b == shownBag and s == shownSlot and ns.Api.SlotItem(b, s) == cheapest.itemID
 end
 
 local retries = 0
@@ -125,7 +154,7 @@ function BagHighlight.Refresh()
   end
   cheapest = ns.Cheapest.Find()
   local button, seen
-  if cheapest then button, seen = BagHighlight.FindButton(cheapest.bag, cheapest.slot, soon) end
+  if cheapest then button, seen = BagHighlight.FindButton(cheapest, soon) end
   BagHighlight.seen = seen or 0
   local b = MakeBorder()
   target = button
@@ -140,6 +169,7 @@ function BagHighlight.Refresh()
     return
   end
   retries = 0
+  shownBag, shownSlot = slotOf(button)
   b:SetParent(button)
   b:ClearAllPoints()
   b:SetAllPoints(button)
@@ -179,6 +209,7 @@ soon = function()
   retries = 0
   ns.Debounce("bag highlight", 0.2, BagHighlight.Refresh)
 end
+BagHighlight.Soon = soon
 
 -- The tooltip for the highlighted item says why it's highlighted.
 local function onItemTooltip(tooltip, data)

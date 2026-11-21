@@ -171,7 +171,10 @@ NUM_BAG_SLOTS = 4
 function BagButton(bag, slot)
   local b = CreateFrame("ItemButton", nil, UIParent, "ContainerFrameItemButtonTemplate")
   b:SetID(slot)
-  function b:GetBagID() return bag end
+  b._bag = bag
+  function b:GetBagID() return self._bag end
+  -- Bag addons reuse buttons: switching views points the same button at another slot.
+  function b:Assign(newBag, newSlot) self._bag = newBag; self:SetID(newSlot) end
   return b
 end
 

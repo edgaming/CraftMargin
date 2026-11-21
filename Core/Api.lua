@@ -212,6 +212,14 @@ function Api.BagItems()
   return out
 end
 
+-- The item in one bag slot, or nil.
+function Api.SlotItem(bag, slot)
+  local C = C_Container
+  if type(bag) ~= "number" or type(slot) ~= "number" or not (C and C.GetContainerItemInfo) then return nil end
+  local ok, info = pcall(C.GetContainerItemInfo, bag, slot)
+  return ok and type(info) == "table" and clean(info.itemID) or nil
+end
+
 local QUESTION_MARK = 134400 -- Interface\Icons\INV_Misc_QuestionMark
 
 -- Icon for an item; the question mark until the game has it loaded.

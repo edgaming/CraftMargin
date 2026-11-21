@@ -209,3 +209,29 @@ test("debug says how many bag buttons it looked at when it can't find the slot",
   Slash("debug")
   ok(Printed("bag button not found among 1 visible bag buttons (first is bag/slot 0/1)"))
 end)
+
+test("switching bag views moves the border with the item, not the button", function()
+  local ns = world()
+  local buttons = open()
+  eq((ns.UI.BagHighlight.Target()), buttons["0:3"])
+  -- the view changes: the button that showed 0:3 now shows Silk Cloth, and 0:2's button shows 0:3
+  buttons["0:3"]:Assign(1, 2)
+  buttons["0:2"]:Assign(0, 3)
+  buttons["1:2"]:Assign(0, 2)
+  Frames(0.3)
+  Advance(1)
+  eq((ns.UI.BagHighlight.Target()), buttons["0:2"], "the border followed Broken Fang")
+end)
+
+test("a view that merges stacks highlights the merged button for that item", function()
+  local ns = world()
+  Mock.slots[1][3] = { id = 1001, count = 9 } -- a second Broken Fang stack
+  -- one button for all Broken Fang, reporting the other stack's slot; no button for 0:3
+  local merged = BagButton(1, 3)
+  BagButton(0, 2)
+  FireEvent("BAG_OPEN")
+  Advance(1)
+  local target, cheapest = ns.UI.BagHighlight.Target()
+  eq(cheapest.bag .. ":" .. cheapest.slot, "0:3")
+  eq(target, merged)
+end)
