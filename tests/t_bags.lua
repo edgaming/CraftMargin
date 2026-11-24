@@ -84,7 +84,42 @@ test("bags closed: nothing highlighted, nothing breaks", function()
   Advance(1)
   local target, cheapest = ns.UI.BagHighlight.Target()
   eq(target, nil)
-  eq(cheapest.itemID, 1001)
+  eq(cheapest, nil, "bags closed: nothing worked out")
+end)
+
+local function countWalks()
+  local walks, orig = { n = 0 }, EnumerateFrames
+  EnumerateFrames = function(f) if f == nil then walks.n = walks.n + 1 end return orig(f) end
+  return walks, function() EnumerateFrames = orig end
+end
+
+test("looting with bags closed never walks the UI's frames or prices the bags", function()
+  local ns = world()
+  open()
+  for _, b in pairs(Mock.allFrames) do if b.GetBagID then b:Hide() end end
+  Frames(0.1)
+  local walks, restore = countWalks()
+  local finds, origFind = 0, ns.Cheapest.Find
+  ns.Cheapest.Find = function() finds = finds + 1 return origFind() end
+  for _ = 1, 20 do FireEvent("BAG_UPDATE_DELAYED"); Advance(0.1) end
+  Advance(1)
+  restore(); ns.Cheapest.Find = origFind
+  eq(walks.n, 0)
+  eq(finds, 0)
+end)
+
+test("looting with bags open uses the buttons it already knows: no walks, one check per burst", function()
+  local ns = world()
+  open()
+  local walks, restore = countWalks()
+  local finds, origFind = 0, ns.Cheapest.Find
+  ns.Cheapest.Find = function() finds = finds + 1 return origFind() end
+  for _ = 1, 5 do FireEvent("BAG_UPDATE_DELAYED") end
+  Advance(1)
+  restore(); ns.Cheapest.Find = origFind
+  eq(walks.n, 0)
+  eq(finds, 1)
+  ok(ns.UI.BagHighlight.Target() ~= nil)
 end)
 
 test("frames whose state is secret are skipped, not tested", function()

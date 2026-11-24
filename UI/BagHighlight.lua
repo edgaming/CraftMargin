@@ -116,20 +116,61 @@ local function matchOf(f, c)
   return 0, b, s
 end
 
--- The visible item button for the cheapest slot, from any bag addon. Also returns how many
--- visible bag buttons there were, for /margin debug.
-function BagHighlight.FindButton(c, onShow)
-  local f, found, best, seen = EnumerateFrames(), nil, 0, 0
-  BagHighlight.sample = nil
+-- Bag buttons seen so far (weak: bag addons may throw theirs away). Walking every frame in the
+-- UI is slow with a big UI, so it only happens when a bag window opens or a known button can't be
+-- found; bag changes while looting just look through these.
+local buttons = setmetatable({}, { __mode = "k" })
+local lastScan = -math.huge
+local SCAN_GAP = 1 -- seconds between full walks caused by bag changes
+
+local function now() return GetTime and GetTime() or 0 end
+local function clock() return debugprofilestop and debugprofilestop() or 0 end
+
+local function scanAll(onShow)
+  local f, n = EnumerateFrames(), 0
   while f do
-    if looksLikeBagButton(f) and ask(f, "IsVisible") == true then
+    n = n + 1
+    if looksLikeBagButton(f) and not buttons[f] then
+      buttons[f] = true
+      watchWindow(f, onShow)
+    end
+    f = EnumerateFrames(f)
+  end
+  lastScan = now()
+  BagHighlight.scanned = n
+end
+
+local function anyWindowShown()
+  for w in pairs(windows) do
+    if ask(w, "IsVisible") == true then return true end
+  end
+  return false
+end
+
+-- The visible item button for the cheapest slot among the known buttons. Also returns how many
+-- visible bag buttons there were, for /margin debug.
+local function search(c)
+  local found, best, seen = nil, 0, 0
+  BagHighlight.sample = nil
+  for f in pairs(buttons) do
+    if ask(f, "IsVisible") == true then
       seen = seen + 1
-      if onShow then watchWindow(f, onShow) end
       local m, b, s = matchOf(f, c)
       if seen == 1 then BagHighlight.sample = string.format("%s/%s", tostring(b), tostring(s)) end
       if m > best then found, best = f, m end
     end
-    f = EnumerateFrames(f)
+  end
+  return found, seen
+end
+
+-- scan: walk every frame first (a bag window just opened). Otherwise only the known buttons,
+-- with a walk now and then if the slot's button isn't among them.
+function BagHighlight.FindButton(c, scan, onShow)
+  if scan then scanAll(onShow) end
+  local found, seen = search(c)
+  if not found and not scan and seen > 0 and now() - lastScan >= SCAN_GAP then
+    scanAll(onShow)
+    found, seen = search(c)
   end
   return found, seen
 end
@@ -147,16 +188,27 @@ local soon
 
 -- The border sits inside the slot button (so it draws with the slot, above its icon and the bag
 -- window's art). Slot buttons are protected, so the border only moves outside combat.
-function BagHighlight.Refresh()
+-- scan: a bag window may just have opened, so walk all frames for new buttons.
+function BagHighlight.Refresh(scan)
   if InCombatLockdown and InCombatLockdown() then
     BagHighlight.afterCombat = true
     return
   end
+  local started = clock()
+  local b = MakeBorder()
+  if scan then scanAll(BagHighlight.Opened) end
+  -- Bags closed: nothing to draw, so don't work anything out.
+  if not anyWindowShown() then
+    b:Hide()
+    target, cheapest = nil, nil
+    BagHighlight.seen, BagHighlight.ms = 0, clock() - started
+    return
+  end
   cheapest = ns.Cheapest.Find()
   local button, seen
-  if cheapest then button, seen = BagHighlight.FindButton(cheapest, soon) end
+  if cheapest then button, seen = BagHighlight.FindButton(cheapest, false, BagHighlight.Opened) end
   BagHighlight.seen = seen or 0
-  local b = MakeBorder()
+  BagHighlight.ms = clock() - started
   target = button
   if not button then
     b:Hide()
@@ -164,7 +216,7 @@ function BagHighlight.Refresh()
     -- couple of times while bag buttons are showing.
     if cheapest and (seen or 0) > 0 and retries < 3 then
       retries = retries + 1
-      ns.After(0.5, BagHighlight.Refresh)
+      ns.After(0.5, function() BagHighlight.Refresh(true) end)
     end
     return
   end
@@ -205,11 +257,21 @@ BagHighlight.ItemIDFromLink = itemIDFromLink
 
 function BagHighlight.Target() return target, cheapest end
 
-soon = function()
-  retries = 0
-  ns.Debounce("bag highlight", 0.2, BagHighlight.Refresh)
+-- Bag changes come in bursts while looting: wait for them to settle, then do one check.
+local pendingScan = false
+local function refreshPending()
+  local scan = pendingScan
+  pendingScan = false
+  BagHighlight.Refresh(scan)
 end
-BagHighlight.Soon = soon
+soon = function(scan)
+  retries = 0
+  if scan == true then pendingScan = true end
+  ns.Debounce("bag highlight", 0.3, refreshPending)
+end
+local function opened() soon(true) end
+BagHighlight.Soon = function() soon() end
+BagHighlight.Opened = opened
 
 -- The tooltip for the highlighted item says why it's highlighted.
 local function onItemTooltip(tooltip, data)
@@ -225,8 +287,8 @@ local function onItemTooltip(tooltip, data)
 end
 
 ns.Listen("READY", function()
-  ns.On("BAG_UPDATE_DELAYED", soon)
-  ns.On("BAG_OPEN", soon)
+  ns.On("BAG_UPDATE_DELAYED", BagHighlight.Soon)
+  ns.On("BAG_OPEN", opened)
   ns.On("PLAYER_REGEN_ENABLED", function()
     if BagHighlight.afterCombat then
       BagHighlight.afterCombat = nil
@@ -236,9 +298,9 @@ ns.Listen("READY", function()
   if hooksecurefunc and HandleModifiedItemClick then
     hooksecurefunc("HandleModifiedItemClick", function(link) ns.Safe("keep item", BagHighlight.OnModifiedClick, link) end)
   end
-  ns.Listen("UPDATE", soon) -- prices changed
+  ns.Listen("UPDATE", BagHighlight.Soon) -- prices changed
   for _, name in ipairs({ "ToggleAllBags", "OpenAllBags", "ToggleBackpack", "OpenBackpack", "ToggleBag", "OpenBag" }) do
-    if _G[name] and hooksecurefunc then hooksecurefunc(name, soon) end
+    if _G[name] and hooksecurefunc then hooksecurefunc(name, function() opened() end) end
   end
   if TooltipDataProcessor and Enum and Enum.TooltipDataType and Enum.TooltipDataType.Item then
     TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip, data)

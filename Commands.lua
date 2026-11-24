@@ -55,7 +55,7 @@ function Commands.Debug()
   end
   local builtin, recorded = ns.Vendor.Count()
   say(string.format("Vendor prices: %d built in, %d seen", builtin, recorded))
-  if not (InCombatLockdown and InCombatLockdown()) then ns.Safe("bag highlight", ns.UI.BagHighlight.Refresh) end
+  if not (InCombatLockdown and InCombatLockdown()) then ns.Safe("bag highlight", ns.UI.BagHighlight.Refresh, true) end
   local target, cheapest = ns.UI.BagHighlight.Target()
   say("Cheapest in bags: " .. (cheapest and string.format("%s (bag %d slot %d, %s)%s",
     (Api.Item(cheapest.itemID)) or cheapest.itemID, cheapest.bag, cheapest.slot, ns.Util.Money(cheapest.worth),
@@ -66,6 +66,8 @@ function Commands.Debug()
     say(string.format("  Button: %s, %sx%s, %s level %s, alpha %s", v("GetName"), v("GetWidth"), v("GetHeight"),
       v("GetFrameStrata"), v("GetFrameLevel"), v("GetEffectiveAlpha")))
   end
+  local BH = ns.UI.BagHighlight
+  say(string.format("  Bag check: %.1f ms (walked %d frames)", BH.ms or 0, BH.scanned or 0))
   local kept = 0
   for _ in pairs(ns.db.keep) do kept = kept + 1 end
   say(string.format("Kept items: %d", kept))
