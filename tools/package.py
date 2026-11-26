@@ -7,7 +7,7 @@ import zipfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ADDON = "CraftMargin"
-INCLUDE = [ADDON + ".toc", "Commands.lua", "Core", "Domain", "UI", "Media", "THIRD_PARTY_LICENSES"]
+INCLUDE = [ADDON + ".toc", "Commands.lua", "Core", "Domain", "UI", "Media"]
 
 
 def main():

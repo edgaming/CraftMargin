@@ -295,7 +295,7 @@ function AddRecipe(skillLine, r)
   end
   Mock.ts.recipes[skillLine][r.id] = {
     info = { recipeID = r.id, name = r.name, learned = r.learned ~= false, numSkillUps = r.points or 1,
-      maxTrivialLevel = r.grey or 0 },
+      maxTrivialLevel = r.grey or 0, relativeDifficulty = r.difficulty },
     schematic = { recipeID = r.id, outputItemID = r.out, quantityMin = r.min or 1, quantityMax = r.max or r.min or 1,
       reagentSlotSchematics = slots },
   }
@@ -370,19 +370,6 @@ function Item(id, name, bind, vendor, icon) Mock.items[id] = { name = name, bind
 
 ---------------------------------------------------------------------------
 -- Merchant
-
--- Trainer window: { { name, profession, skill, cost } }
-Mock.trainer = {}
-GetNumTrainerServices = function() return #Mock.trainer end
-GetTrainerServiceInfo = function(i) local t = Mock.trainer[i] return t.name, "", t.kind or "available" end
-GetTrainerServiceSkillReq = function(i) local t = Mock.trainer[i] return t.profession, t.skill, true end
-GetTrainerServiceCost = function(i) return Mock.trainer[i].cost end
-
-function VisitTrainer(services)
-  Mock.trainer = services
-  FireEvent("TRAINER_SHOW")
-  Advance(1)
-end
 
 GetMerchantNumItems = function() return #Mock.merchant end
 GetMerchantItemID = function(i) return Mock.merchant[i] and Mock.merchant[i].id end
@@ -550,7 +537,7 @@ function Window()
     if row:IsShown() then
       table.insert(w.rows, {
         name = row.name:GetText(), cost = Strip(row.cost:GetText()), sells = Strip(row.sells:GetText()),
-        profit = Strip(row.profit:GetText()), color = ColorOf(row.profit), row = row,
+        profit = Strip(row.profit:GetText()), color = ColorOf(row.profit), nameColor = ColorOf(row.name), row = row,
       })
     end
   end

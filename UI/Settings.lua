@@ -1,4 +1,4 @@
--- The cogwheel in the main window's title bar and its price source popup.
+-- The cogwheel in the main window's title bar: price source, and which recipe colours show.
 local _, ns = ...
 local Settings = {}
 ns.UI.Settings = Settings
@@ -7,6 +7,7 @@ local UI = ns.UI
 
 local L = {
   TITLE = "Price source",
+  SHOW = "Show recipes",
   NOT_INSTALLED = "not installed",
 }
 
@@ -64,7 +65,29 @@ function Settings.Create(parent)
     end)
     Settings.rows[i] = radio
   end
-  pop:SetSize(250, 24 + #ns.Prices.SOURCES * ROW_H + 8)
+
+  -- Which difficulty colours the list shows. All by default.
+  local top = -10 - (#ns.Prices.SOURCES + 1) * ROW_H - 8
+  local show = UI.Text(pop, "GameFontNormal", "LEFT")
+  show:SetPoint("TOPLEFT", 12, top)
+  show:SetText(L.SHOW)
+  Settings.boxes = {}
+  for i, d in ipairs(ns.Difficulty.ORDER) do
+    local box = CreateFrame("CheckButton", nil, pop, "UICheckButtonTemplate")
+    box:SetSize(22, 22)
+    box:SetPoint("TOPLEFT", 7, top - i * ROW_H + 3)
+    box.key = d
+    box.label = UI.Text(pop, "GameFontHighlight", "LEFT")
+    box.label:SetPoint("LEFT", box, "RIGHT", 3, 0)
+    box.label:SetText(ns.Difficulty.NAMES[d])
+    UI.SetColor(box.label, d)
+    box:SetScript("OnClick", function(self)
+      ns.db.hide[self.key] = (not self:GetChecked()) or nil
+      ns.Update()
+    end)
+    Settings.boxes[i] = box
+  end
+  pop:SetSize(250, -top + #ns.Difficulty.ORDER * ROW_H + 14)
 
   parent:HookScript("OnHide", function() pop:Hide() end)
 end
@@ -79,6 +102,7 @@ function Settings.Refresh()
     UI.SetColor(radio.label, installed and "text" or "muted")
     radio.note:SetShown(not installed)
   end
+  for _, box in ipairs(Settings.boxes) do box:SetChecked(not ns.db.hide[box.key]) end
 end
 
 function Settings.Toggle()

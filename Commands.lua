@@ -37,22 +37,8 @@ function Commands.Debug()
     .. " · recipe tooltip: " .. (GameTooltip.SetRecipeResultItem and "yes" or "no"))
   local open = Api.OpenProfession()
   say("Open profession: " .. (open and (open.name .. " (" .. open.skillLine .. ")") or "none"))
-  local trainers = {}
-  for prof, t in pairs(ns.db.trainer) do
-    local n = 0
-    for _ in pairs(t) do n = n + 1 end
-    trainers[#trainers + 1] = prof .. " " .. n
-  end
-  say("Trainer recipes seen: " .. (#trainers > 0 and table.concat(trainers, ", ") or "none"))
-  local route = ns.Leveling.last
-  if route and route.info then
-    local i = route.info
-    say(string.format("Last route: %d to %d, %d steps; left out: %d unpriced, %d no thresholds, %d you can't get, %d unknown source, %d on a cooldown",
-      route.from, route.to, #route.steps, i.unpriced, i.noThresholds, i.unobtainable, i.unknown, i.cooldown))
-    local names = {}
-    for _, r in ipairs(i.mismatches) do names[#names + 1] = string.format("%s (%d)", r.name, r.id) end
-    if #names > 0 then say("Grey mismatches: " .. table.concat(names, ", ")) end
-  end
+  local hidden = ns.Difficulty.Filter()
+  say("Showing: " .. (hidden and (#hidden > 0 and table.concat(hidden, ", ") or "nothing") or "all colours"))
   local builtin, recorded = ns.Vendor.Count()
   say(string.format("Vendor prices: %d built in, %d seen", builtin, recorded))
   if not (InCombatLockdown and InCombatLockdown()) then ns.Safe("bag highlight", ns.UI.BagHighlight.Refresh, true) end
@@ -82,19 +68,16 @@ function Commands.DebugRecipe(query)
   local U = ns.Util
   local found
   for skillLine, entry in pairs(ns.char.profs) do
-    for _, list in ipairs({ entry.recipes, entry.unlearned or {} }) do
-      for _, recipe in ipairs(list) do
-        if not found and (recipe.name or ""):lower():find(query, 1, true) then
-          found = { recipe = recipe, prof = { name = entry.name, skillLine = skillLine }, learned = list == entry.recipes }
-        end
+    for _, recipe in ipairs(entry.recipes) do
+      if not found and (recipe.name or ""):lower():find(query, 1, true) then
+        found = { recipe = recipe, entry = entry, skillLine = skillLine }
       end
     end
   end
   if not found then return say("No recipe matching \"" .. query .. "\".") end
   local recipe = found.recipe
   local r = ns.Prices.Evaluate(recipe)
-  say(string.format("%s (%d) · %s%s", recipe.name, recipe.id, found.learned and "learned" or "not learned",
-    recipe.cooldown and " · has a cooldown, left out of routes" or ""))
+  say(string.format("%s (%d)", recipe.name, recipe.id))
   for _, m in ipairs(r.mats) do
     local name = (Api.Item(m.id)) or ("item " .. m.id)
     if m.unit then
@@ -114,13 +97,15 @@ function Commands.DebugRecipe(query)
   end
   if r.vendor then say("  Vendor: " .. U.Money(r.vendor.revenue)) end
   say("  Best: " .. tostring(r.best or "none") .. (r.profit and (" · profit per craft " .. U.SignedMoney(r.profit)) or ""))
-  local yellow, grey = ns.Leveling.Thresholds(recipe)
-  say(string.format("  Thresholds: yellow %s, green %s, grey %s", tostring(yellow),
-    yellow and tostring(math.floor((yellow + grey) / 2)) or "?", tostring(grey)))
-  if not found.learned then
-    local how, why = ns.Leveling.Acquire(found.prof, recipe)
-    say("  Learn: " .. (how and (ns.Leveling.SourceText(how) .. ", skill " .. how.skill) or why))
+  local D = ns.Difficulty
+  local yellow, grey = D.Thresholds(recipe)
+  local rank
+  for _, p in ipairs(Api.Professions()) do
+    if p.skillLine == found.skillLine or p.name == found.entry.name then rank = p.rank end
   end
+  say(string.format("  Thresholds: yellow %s, green %s, grey %s · game said %s at skill %s · now %s at skill %s",
+    tostring(yellow), yellow and tostring(math.floor((yellow + grey) / 2)) or "?", tostring(grey),
+    tostring(recipe.difficulty), tostring(found.entry.rank), tostring(D.Of(recipe, rank, found.entry.rank)), tostring(rank)))
 end
 
 function Commands.Run(msg)

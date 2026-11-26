@@ -11,8 +11,8 @@ local L = {
 
 -- Pure: turn the game's recipe info + schematic into a stored entry.
 -- Returns entry, or nil and a reason ("unlearned", "other", "noItem").
-function Recipes.Build(info, schematic, basicType, includeUnlearned)
-  if not info or (not info.learned and not includeUnlearned) then return nil, "unlearned" end
+function Recipes.Build(info, schematic, basicType)
+  if not info or not info.learned then return nil, "unlearned" end
   if info.isRecraft or info.isSalvageRecipe or info.isGatheringRecipe then return nil, "other" end
   local out = schematic and schematic.outputItemID
   if not out or out == 0 then return nil, "noItem" end
@@ -29,9 +29,9 @@ function Recipes.Build(info, schematic, basicType, includeUnlearned)
   local qmin = math.max(1, schematic.quantityMin or 1)
   local qmax = math.max(qmin, schematic.quantityMax or qmin)
   local entry = { id = info.recipeID, name = info.name, out = out, min = qmin, max = qmax, mats = mats }
-  -- For levelling: skill points per craft and the game's own grey threshold.
-  if info.numSkillUps and info.numSkillUps > 1 then entry.points = info.numSkillUps end
+  -- Difficulty: the game's own grey threshold, and its colour for the recipe right now.
   if info.maxTrivialLevel and info.maxTrivialLevel > 0 then entry.grey = info.maxTrivialLevel end
+  entry.difficulty = ns.Difficulty.FromGame(info.relativeDifficulty or info.difficulty)
   return entry
 end
 
@@ -41,31 +41,30 @@ function Recipes.Index()
   local ids = Api.RecipeIDs()
   if not ids or #ids == 0 then return end
 
-  local list, unlearned, noItem = {}, {}, 0
+  local list, noItem = {}, 0
   local basic = Api.ReagentBasicType()
   for _, id in ipairs(ids) do
     local info = Api.RecipeInfo(id)
     if info then
-      local entry, why = Recipes.Build(info, Api.Schematic(id), basic, true)
+      local entry, why = Recipes.Build(info, Api.Schematic(id), basic)
       if entry then
         entry.id = entry.id or id
-        if Api.RecipeHasCooldown(id, entry.name) then entry.cooldown = true end
-        if info.learned then
-          list[#list + 1] = entry
-        else
-          entry.source = Api.RecipeSource(id)
-          unlearned[#unlearned + 1] = entry
-        end
-      elseif why == "noItem" and info.learned then
+        list[#list + 1] = entry
+      elseif why == "noItem" then
         noItem = noItem + 1
       end
     end
   end
   if #list == 0 and noItem == 0 then return end -- data not ready yet
 
+  -- The skill the game's colours were for: they're only trusted while it hasn't changed.
+  local rank
+  for _, p in ipairs(Api.Professions()) do
+    if p.skillLine == prof.skillLine or p.name == prof.name then rank = p.rank end
+  end
   local old = ns.char.profs[prof.skillLine]
   ns.char.profs[prof.skillLine] = {
-    name = prof.name, readAt = Api.Now(), recipes = list, unlearned = unlearned, noItem = noItem,
+    name = prof.name, readAt = Api.Now(), recipes = list, noItem = noItem, rank = rank,
   }
   if not old or #old.recipes ~= #list then
     print(string.format(L.READ, #list, prof.name))

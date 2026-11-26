@@ -23,6 +23,11 @@ Util.RGB = {
   muted = { 0.55, 0.55, 0.55 },
   head = { 1.00, 0.82, 0.00 },
   text = { 1.00, 1.00, 1.00 },
+  -- Recipe difficulty, in the game's own profession window colours.
+  orange = { 1.00, 0.50, 0.25 },
+  yellow = { 1.00, 1.00, 0.00 },
+  green = { 0.25, 0.75, 0.25 },
+  grey = { 0.50, 0.50, 0.50 },
 }
 
 function Util.Hex(kind)
