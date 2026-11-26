@@ -135,6 +135,8 @@ function Frame:GetChecked() return self._checked == true end
 function Frame:Enable() self._disabled = false end
 function Frame:Disable() self._disabled = true end
 function Frame:IsEnabled() return not self._disabled end
+function Frame:SetSize(w, h) self._w, self._h = w, h end
+function Frame:GetHeight() return rawget(self, "_h") or 0 end
 function Frame:SetText(t) self._text = t end
 function Frame:GetText() return self._text end
 function Frame:GetStringWidth() return #(self._text or "") * 6 end

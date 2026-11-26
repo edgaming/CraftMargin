@@ -87,7 +87,8 @@ function Settings.Create(parent)
     end)
     Settings.boxes[i] = box
   end
-  pop:SetSize(250, -top + #ns.Difficulty.ORDER * ROW_H + 14)
+  -- Room down to the bottom of the last checkbox (22 tall, 3 above its row), plus padding.
+  pop:SetSize(250, -top + #ns.Difficulty.ORDER * ROW_H + 19 + 12)
 
   parent:HookScript("OnHide", function() pop:Hide() end)
 end

@@ -108,3 +108,14 @@ test("debug for one recipe shows its thresholds and colour", function()
   Slash("debug linen bag")
   ok(Printed("Thresholds: yellow 30, green 47, grey 65 · game said yellow at skill 40 · now yellow at skill 40"))
 end)
+
+test("the cogwheel popup is tall enough for the last checkbox, with room below it", function()
+  local ns = world()
+  Click(ns.UI.Settings.button)
+  local pop, lowest = ns.UI.Settings.popup, 0
+  for _, b in ipairs(ns.UI.Settings.boxes) do
+    local _, y = select(2, b:GetPoint()), select(3, b:GetPoint())
+    lowest = math.max(lowest, -y + 22)
+  end
+  ok(pop:GetHeight() >= lowest + 8, string.format("popup %d tall, last box ends at %d", pop:GetHeight(), lowest))
+end)
